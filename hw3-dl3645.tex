@@ -182,7 +182,7 @@ Given the heavy-tailed nature of the residuals, mean-based metrics such as RMSE 
     \label{fig:residuals-log}
 \end{figure}
 
-To contextualize the MIWAE performance, I also fit tree-based regressors on the same feature set. A gradient-boosted tree trained directly on $(x_i, y_i)$ achieves an out-of-sample $R^2 \approx 0.96$ in log-price space, while a tree trained on the learned latent means $z_i$ attains $R^2 \approx 0.93$. The MIWAE price head itself reaches $R^2 \approx 0.90$ on the same test split. These comparisons suggest that (i) the encoder and prior preserve most of the predictive signal in three latent dimensions, and (ii) the main performance gap relative to the tree upper bound arises from the Gaussian likelihood and small price head rather than the latent representation.
+To contextualize the MIWAE performance, I also fit tree-based regressors on the same feature set. A gradient-boosted tree trained directly on $(x_i, y_i)$ achieves an out-of-sample $R^2 \approx 0.96$ in log-price space, while a tree trained on the learned latent means $z_i$ attains $R^2 \approx 0.93$. The MIWAE prediction network itself reaches $R^2 \approx 0.90$ on the same test split. These comparisons suggest that the encoder and prior preserve most of the predictive signal in three latent dimensions, and the main performance gap relative to the tree upper bound arises from the Gaussian likelihood and small prediction network rather than the latent representation.
 
 \subsubsection*{Residual structure and unused signal}
 
