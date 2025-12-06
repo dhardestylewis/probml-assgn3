@@ -17,11 +17,20 @@ Homework 3}
 Due: Dec 12 at 11:59 pm ET
 \end{center}
 
-\section*{Question 3: Project-aligned Probabilistic Latent Factor Model}
+\section*{Abstract}
 
-\subsection*{(i) Introduction}
+\paragraph{Aspirational abstract.}
+This project will develop and evaluate a probabilistic latent factor model for urban property valuation under pervasive missingness and heavy-tailed noise. Using a large panel of New York City property records (roughly $10^5$ parcels) with assessment variables, building characteristics, and partial transaction data, I will treat observed log sale prices as a noisy, intermittently missing target and learn a low-dimensional latent representation that jointly explains both the feature distribution and prices. Concretely, I plan to implement a semi-supervised MIWAE-style variational autoencoder with a mixture of Student-$t$ priors over the latent space to better accommodate multimodality and extreme residuals. The model will operate on masked inputs, perform amortized inference for the latent codes, and produce both point predictions and predictive uncertainty for sale prices.
+
+Quantitatively, I will compare the generative model against strong discriminative baselines (e.g., gradient-boosted trees on the same features) using held-out log-posterior-predictive scores, RMSE/MAE in log-price space, and more robust, tail-sensitive metrics such as median absolute percentage error and percentile-weighted losses. I will also assess calibration of the predictive variance and examine how much signal in prices is captured by the learned factors versus left in residuals. Qualitatively, I will visualize the latent space (e.g., 2D projections of the learned factors) colored by building class, sale price deciles, and basic location proxies to interpret what structure the model has discovered. The broader aim is to understand when a probabilistic latent factor model is competitive with standard supervised approaches for noisy, heavy-tailed real-estate data, and how its uncertainty estimates and latent structure could be used to flag unreliable valuations or systematic gaps in market coverage. This work has significant implications for fair property taxation and urban planning, where accurate, uncertainty-aware valuations are critical for equitable policy.
+
+\section*{Introduction}
+
+\subsection*{(i) Problem and Motivation}
 
 In this section I implement a semi-supervised, probabilistic latent factor model to analyze a large panel of New York City property records. The primary goal is twofold: (1) to learn a low-dimensional latent representation of parcels that captures meaningful structure across assessed values, land characteristics, and building attributes; and (2) to use this representation to model the (log) sale price, including when prices are missing or partially observed. This setup matches the ``project-aligned'' option because the same model architecture underlies my course project on robust price imputation and latent structure in urban property markets.
+
+Accurate property valuation is fundamental to municipal finance, real estate transactions, and equitable taxation. However, traditional automated valuation models (AVMs) often struggle with the heavy-tailed noise and pervasive missingness characteristic of urban data, leading to systematic errors that can disproportionately affect specific neighborhoods or property types. By explicitly modeling these factors, we aim to provide a more robust tool for assessors and policymakers.
 
 The dataset is high-dimensional, noisy, and heavily skewed in both covariates and outcomes. A flexible generative model with latent factors is therefore natural: it can exploit shared structure across covariates, explicitly model missingness, and provide both point predictions and uncertainty estimates for (log) sale prices. I use a semi-supervised variant of a Missing-data Importance-Weighted Autoencoder (MIWAE) with a Student-\emph{t} mixture prior over latent factors, trained end-to-end on approximately $1.2\times 10^5$ NYC parcels.
 
@@ -204,12 +213,21 @@ When building-class information is available (e.g., small 1--4 family homes, lar
 
 Overall, the MIWAE model discovers a compact latent representation that organizes properties along interpretable axes and supports competitive predictive performance relative to a flexible tree baseline, while exposing clear heavy-tailed residual structure and leftover signal for future model refinements (e.g., heavier-tailed likelihoods for log prices or richer price heads).
 
+\section*{Plans and Bottlenecks}
 
-\section*{Question 4: Final Project}
+\subsection*{Plans for Final Weeks}
+In the remaining weeks, I plan to:
+\begin{itemize}
+    \item Implement heavier-tailed likelihoods (e.g., Student-t) for the price head to better capture extreme valuations.
+    \item Conduct a rigorous calibration assessment of the predictive uncertainty.
+    \item Explore richer architectures for the price prediction network.
+    \item Complete the computation of robust metrics (median absolute error, tail quantiles) to replace the current placeholders.
+\end{itemize}
 
-\paragraph{Aspirational abstract.}
-This project will develop and evaluate a probabilistic latent factor model for urban property valuation under pervasive missingness and heavy-tailed noise. Using a large panel of New York City property records (roughly $10^5$ parcels) with assessment variables, building characteristics, and partial transaction data, I will treat observed log sale prices as a noisy, intermittently missing target and learn a low-dimensional latent representation that jointly explains both the feature distribution and prices. Concretely, I plan to implement a semi-supervised MIWAE-style variational autoencoder with a mixture of Student-$t$ priors over the latent space to better accommodate multimodality and extreme residuals. The model will operate on masked inputs, perform amortized inference for the latent codes, and produce both point predictions and predictive uncertainty for sale prices.
+\subsection*{Current Bottlenecks}
+The primary bottleneck is the significant ``unused signal'' observed in the residual analysis, where 50\% of the explainable variation remains uncaptured by the latent factors. This suggests potential model misspecification or optimization difficulties with the mixture prior. Additionally, the computational cost of importance sampling limits the number of particles we can use during training, and the heavy-tailed nature of the data continues to pose challenges for standard Gaussian likelihood assumptions.
 
-Quantitatively, I will compare the generative model against strong discriminative baselines (e.g., gradient-boosted trees on the same features) using held-out log-posterior-predictive scores, RMSE/MAE in log-price space, and more robust, tail-sensitive metrics such as median absolute percentage error and percentile-weighted losses. I will also assess calibration of the predictive variance and examine how much signal in prices is captured by the learned factors versus left in residuals. Qualitatively, I will visualize the latent space (e.g., 2D projections of the learned factors) colored by building class, sale price deciles, and basic location proxies to interpret what structure the model has discovered. The broader aim is to understand when a probabilistic latent factor model is competitive with standard supervised approaches for noisy, heavy-tailed real-estate data, and how its uncertainty estimates and latent structure could be used to flag unreliable valuations or systematic gaps in market coverage.
+\section*{Future Work}
+Beyond the immediate plans, future work could involve incorporating spatial dependencies explicitly (e.g., via a graph neural network or spatial random effects) and exploring fully unsupervised pre-training on a larger set of unlabeled parcels to improve the latent representation.
 
 \end{document}
