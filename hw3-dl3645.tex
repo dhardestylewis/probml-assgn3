@@ -101,7 +101,7 @@ with $m_\phi(\cdot)$ and $\log v_\phi(\cdot)$ parameterized by a neural network.
 \right)
 \right].
 \]
-Here $\theta$ collects all generative parameters (mixture prior, decoder, and price head). In the implementation, the loss is decomposed into a reconstruction term for $x_i$, a supervised log-likelihood term for $y_i$, and a KL regularizer between $q_\phi(z_i \mid x_i, y_i)$ and the mixture prior. A scalar hyperparameter $\alpha_y = 10$ upweights the price loss to ensure that the latent factors remain predictive of $y_i$.
+Here $\theta$ collects all generative parameters: the mixture prior, decoder, and prediction network. In the implementation, the loss is decomposed into a reconstruction term for $x_i$, a supervised log-likelihood term for $y_i$, and a KL regularizer between $q_\phi(z_i \mid x_i, y_i)$ and the mixture prior. A hyperparameter $\alpha_y = 10$ emphasizes the price loss to ensure that the latent variables remain predictive of $y_i$.
 
 \paragraph{Optimization and convergence.} I train the model with Adam on mini-batches, using $K_{\text{IW}}$ importance samples per datapoint and early stopping based on a validation estimate of the MIWAE objective. Convergence diagnostics (train and validation loss per epoch) are reported in Figure~\ref{fig:convergence-loss-miwae}. Across cross-validation folds, the number of epochs to convergence is on the order of \emph{[TODO: insert mean epochs here]}.
 
