@@ -131,7 +131,7 @@ The target $y_i = \log(\texttt{sale\_price}_i)$ is observed for approximately $7
     \item Latent dimension: $K = 3$.
     \item Prior: Student-\emph{t} mixture with $K_{\text{prior}} = 5$ components, degrees of freedom fixed at $\nu = 4$.
     \item Encoder/decoder: one hidden layer of width 21 for both $x$-decoder and $z$-encoder.
-    \item Price head: two hidden layers of widths (8, 4) on top of $z$.
+    \item Prediction network: two hidden layers of widths (8, 4) on top of $z$.
     \item Semi-supervised weight: $\alpha_y = 10.0$ on the price log-likelihood term.
 \end{itemize}
 
