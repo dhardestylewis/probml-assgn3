@@ -55,7 +55,7 @@ where $\mu_x(\cdot)$ and $\log \sigma_x^2(\cdot)$ are outputs of a neural decode
 \[
 y_i \mid z_i \sim \mathcal{N}\big(\mu_y(z_i), \sigma_y^2(z_i)\big),
 \]
-with $\mu_y(\cdot)$ and $\log \sigma_y^2(\cdot)$ given by a small ``price head'' network that takes $z_i$ as input. This defines a conditional generative model for $y_i$ given $z_i$ and allows the same latent factors to jointly explain both covariates and prices.
+with $\mu_y(\cdot)$ and $\log \sigma_y^2(\cdot)$ given by a small prediction network that takes $z_i$ as input. This defines a conditional generative model for $y_i$ given $z_i$; the latent variables thus jointly explain both covariates and prices.
 
 \paragraph{Joint distribution.} The full joint distribution of observed and latent variables for one property is
 \[
