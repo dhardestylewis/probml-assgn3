@@ -51,7 +51,7 @@ x_i \mid z_i \sim \mathcal{N}\big(\mu_x(z_i), \operatorname{diag}(\sigma^2_x(z_i
 \]
 where $\mu_x(\cdot)$ and $\log \sigma_x^2(\cdot)$ are outputs of a neural decoder network. In practice, each feature dimension is scaled to have approximately zero mean and unit variance before training, so the decoder operates in standardized units.
 
-\paragraph{Likelihood for log sale price.} For the (log) sale price $y_i$, I add a supervised Gaussian head on top of $z_i$:
+\paragraph{Likelihood for log-transformed sale price.} For the log-transformed sale price $y_i$, I add a supervised Gaussian head on top of $z_i$:
 \[
 y_i \mid z_i \sim \mathcal{N}\big(\mu_y(z_i), \sigma_y^2(z_i)\big),
 \]
