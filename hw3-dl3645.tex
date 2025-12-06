@@ -85,7 +85,7 @@ Direct maximum-likelihood estimation is intractable because the posterior $p(z_i
 \[
 q_\phi(z_i \mid x_i, y_i) = \mathcal{N}\big(m_\phi(x_i, y_i), \operatorname{diag}(v_\phi(x_i, y_i))\big),
 \]
-with $m_\phi(\cdot)$ and $\log v_\phi(\cdot)$ implemented by a neural network. The discrete mixture indicator $c_i$ is marginalized out analytically through the prior; I do not introduce a separate variational distribution over $c_i$.
+with $m_\phi(\cdot)$ and $\log v_\phi(\cdot)$ parameterized by a neural network. The discrete mixture indicator $c_i$ is marginalized out analytically through the prior; I do not introduce a separate variational distribution over $c_i$.
 
 \paragraph{MIWAE objective.} For partially observed $(x_i, y_i)$ pairs, the training objective aggregates $K_{\text{IW}}$ importance samples from $q_\phi$ and maximizes a Monte Carlo estimate of the log marginal likelihood:
 \[
