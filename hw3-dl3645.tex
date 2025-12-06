@@ -124,7 +124,7 @@ Here $\theta$ collects all generative parameters: the mixture prior, decoder, an
 
 The target $y_i = \log(\texttt{sale\_price}_i)$ is observed for approximately $75\%$ of properties, with the remaining $25\%$ treated as missing and used only through their $x_i$ in the unsupervised MIWAE objective.
 
-\paragraph{Preprocessing.} I standardize all continuous covariates to zero mean and unit variance and log-transform sale prices. Missing covariates are handled through the MIWAE masking mechanism rather than explicit imputation: the encoder and decoder both see masks indicating which entries of $x_i$ are observed, and the loss is computed only on those entries. For evaluation, I restrict attention to properties with observed $y_i$.
+\paragraph{Preprocessing.} I standardize all continuous covariates to zero mean and unit variance and log-transform sale prices. Missing covariates are handled through a zero-masking strategy rather than explicit imputation: the encoder and decoder receive binary masks indicating which entries of $x_i$ are observed, and the reconstruction loss is computed only over observed entries. For evaluation, I restrict attention to properties with observed $y_i$.
 
 \paragraph{Model configuration.} The main hyperparameters are:
 \begin{itemize}[noitemsep]
