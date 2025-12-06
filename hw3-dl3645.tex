@@ -39,19 +39,6 @@ The dataset is multivariate, noisy, and heavily skewed in both covariates and ou
 Let $i = 1,\dots, n$ index properties. For each property we observe a covariate vector $x_i \in \mathbb{R}^D$ (parcel and building characteristics) and, for a subset, a scalar outcome $y_i = \log(\text{sale\_price}_i)$. The model introduces a latent factor $z_i \in \mathbb{R}^K$ with $K = 3$.
 
 \paragraph{Prior on latent factors.} I place a $K$-component Student-\emph{t} mixture prior on $z_i$:
-\subsection*{(i) Problem and Motivation}
-
-In this section I implement a semi-supervised, probabilistic latent factor model to analyze a large panel of New York City property records. The primary goal is to learn a low-dimensional latent representation of parcels that captures spatial and physical heterogeneity across assessed values, land characteristics, and building attributes, and to use this representation to model log-transformed sale prices, including when prices are missing or partially observed.
-
-Accurate property valuation is fundamental to municipal finance, real estate transactions, and equitable taxation. However, traditional automated valuation models (AVMs) often struggle with the heavy-tailed noise and pervasive missingness characteristic of urban data, leading to systematic errors that can disproportionately affect specific neighborhoods or property types. By explicitly modeling these factors, we aim to provide a more robust tool for assessors and policymakers.
-
-The dataset is multivariate, noisy, and heavily skewed in both covariates and outcomes. A latent variable model with non-linear likelihoods is appropriate: it exploits shared structure across covariates, explicitly model missingness, and provide both point predictions and uncertainty estimates for (log) sale prices. I use a semi-supervised variant of a Missing-data Importance-Weighted Autoencoder (MIWAE) with a Student-\emph{t} mixture prior over latent factors, trained end-to-end on approximately $1.2\times 10^5$ NYC parcels.
-
-\subsection*{(ii) Model}
-
-Let $i = 1,\dots, n$ index properties. For each property we observe a covariate vector $x_i \in \mathbb{R}^D$ (parcel and building characteristics) and, for a subset, a scalar outcome $y_i = \log(\text{sale\_price}_i)$. The model introduces a latent factor $z_i \in \mathbb{R}^K$ with $K = 3$.
-
-\paragraph{Prior on latent factors.} I place a $K$-component Student-\emph{t} mixture prior on $z_i$:
 \[
 c_i \sim \text{Categorical}(\pi), \qquad
 z_i \mid c_i = k \sim t_\nu\big(\mu_k, \Sigma_k\big),
