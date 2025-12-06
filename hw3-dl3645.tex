@@ -79,7 +79,7 @@ A graphical model for a single property is shown in Figure~\ref{fig:graphical-mo
 
 \subsection*{(iii) Inference}
 
-Direct maximum-likelihood estimation is intractable because the posterior $p(z_i, c_i \mid x_i, y_i)$ is non-Gaussian and mixture-structured. I therefore use amortized variational inference with an importance-weighted objective (MIWAE):
+Direct maximum-likelihood estimation is intractable because the posterior $p(z_i, c_i \mid x_i, y_i)$ is non-Gaussian and multimodal. I therefore use amortized variational inference with an importance-weighted objective (MIWAE):
 
 \paragraph{Variational family.} For each property I introduce an encoder $q_\phi(z_i \mid x_i, y_i)$, parameterized as a diagonal-covariance Gaussian
 \[
