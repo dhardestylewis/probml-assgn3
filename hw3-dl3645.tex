@@ -186,7 +186,7 @@ To contextualize the MIWAE performance, I also fit tree-based regressors on the 
 
 \subsubsection*{Residual structure and unused signal}
 
-To probe whether the residuals still contain systematic structure, I regress the residuals on both the original features $x_i$ and the latent means $z_i$. On a held-out set, a flexible regressor achieves $R^2 \approx 0.50$ for $\text{residual} \mid X$ and $R^2 \approx 0.27$ for $\text{residual} \mid z$, indicating that the model leaves roughly half of the explainable variation in log-price on the table relative to what is available in the raw covariates. This residual structure likely reflects a combination of model misspecification (Gaussian likelihood in log space) and limited capacity in the decoder and price head.
+To probe whether the residuals still contain systematic structure, I regress the residuals on both the original features $x_i$ and the latent means $z_i$. On a held-out set, a flexible regressor achieves $R^2 \approx 0.50$ for $\text{residual} \mid X$ and $R^2 \approx 0.27$ for $\text{residual} \mid z$, indicating that the model fails to capture approximately 50\% of the explainable variation in log-price relative to what is available in the raw covariates. This residual structure likely reflects a combination of model misspecification (Gaussian likelihood in log space) and limited capacity in the decoder and prediction network.
 
 \subsubsection*{Latent structure and qualitative visualization}
 
