@@ -32,7 +32,7 @@ In this section I implement a semi-supervised, probabilistic latent factor model
 
 Accurate property valuation is fundamental to municipal finance, real estate transactions, and equitable taxation. However, traditional automated valuation models (AVMs) often struggle with the heavy-tailed noise and pervasive missingness characteristic of urban data, leading to systematic errors that can disproportionately affect specific neighborhoods or property types. By explicitly modeling these factors, we aim to provide a more robust tool for assessors and policymakers.
 
-The dataset is multivariate, noisy, and heavily skewed in both covariates and outcomes. A latent variable model with non-linear likelihoods is appropriate: it exploits shared structure across covariates, explicitly model missingness, and provide both point predictions and uncertainty estimates for (log) sale prices. I use a semi-supervised variant of a Missing-data Importance-Weighted Autoencoder (MIWAE) with a Student-\emph{t} mixture prior over latent factors, trained end-to-end on approximately $1.2\times 10^5$ NYC parcels.
+The dataset is multivariate, noisy, and heavily skewed in both covariates and outcomes. A latent variable model with non-linear likelihoods is appropriate: it exploits shared structure across covariates, explicitly models missingness, and provides both point predictions and uncertainty estimates for log-transformed sale prices. I use a semi-supervised variant of a Missing-data Importance-Weighted Autoencoder (MIWAE) with a Student-\emph{t} mixture prior over latent factors, trained end-to-end on approximately $1.2\times 10^5$ NYC parcels.
 
 \subsection*{(ii) Model}
 
