@@ -28,7 +28,7 @@ Quantitatively, I compare the generative model against strong baselines such as 
 
 \subsection*{(i) Problem and Motivation}
 
-In this section I implement a semi-supervised, probabilistic latent factor model to analyze a large panel of New York City property records. The primary goal is twofold: (1) to learn a low-dimensional latent representation of parcels that captures meaningful structure across assessed values, land characteristics, and building attributes; and (2) to use this representation to model the (log) sale price, including when prices are missing or partially observed.
+In this section I implement a semi-supervised, probabilistic latent factor model to analyze a large panel of New York City property records. The primary goal is to learn a low-dimensional latent representation of parcels that captures spatial and physical heterogeneity across assessed values, land characteristics, and building attributes, and to use this representation to model log-transformed sale prices, including when prices are missing or partially observed.
 
 Accurate property valuation is fundamental to municipal finance, real estate transactions, and equitable taxation. However, traditional automated valuation models (AVMs) often struggle with the heavy-tailed noise and pervasive missingness characteristic of urban data, leading to systematic errors that can disproportionately affect specific neighborhoods or property types. By explicitly modeling these factors, we aim to provide a more robust tool for assessors and policymakers.
 
