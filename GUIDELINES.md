@@ -2,6 +2,8 @@
 
 > **CRITICAL**: NEVER perform `git rebase` or `git reset` without explicit permission.
 
+> **CRITICAL**: NEVER abbreviate user prompts in `PROMPTS-LOG.md`. Record verbatim. If multiple prompts, use `[followed by:]` notation—never `...`.
+
 > **META**: All new guidelines must be marked `(UNREVIEWED)` until user confirms review.
 > **META**: All new guidelines must include insertion timestamp `[Added: YYYY-MM-DD HH:MM]`.
 
