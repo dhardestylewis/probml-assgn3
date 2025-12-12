@@ -1,5 +1,29 @@
 # HW3 Project Changelog
 
+## December 11, 2025 (23:31 EST) - Session Wrap-Up (UNREVIEWED)
+
+### File Recovery & Cleanup
+- **Restored Directories**: Recovered `final_project/`, `hw2.d/`, `hw_deprecated/`, `hws/hw3.d/` from commit `c2ddb4e4`.
+- **Restored Files**: `TODO-COMPLETED.md`, `README.md`, `GUIDELINES.md`, `CHANGELOG.md`, `TODO.md`, `PROMPTS-LOG.md`.
+- **Deleted Redundant Files**: Removed duplicate top-level files (notebooks, images, aux/log) that duplicated content in `hws/`.
+- **Deleted**: `hw3_verified.txt`, duplicate `hw3-dl3645.aux`/`.log` files.
+
+### Git Hygiene Guidelines
+- **Critical Safety Rule**: Added prohibition on `git rebase`/`git reset` without explicit permission.
+- **Branch Hygiene**: Added rules for detached HEAD handling, branch naming, and status verification.
+- **Commit Hygiene**: Added rules for staging verification, atomic commits, and frequent commits.
+- **Push Protocol**: Added pre-push verification, branch confirmation, and backup requirements.
+- **Pull Request Protocol**: Added PR workflow guidelines for major changes.
+
+### Guideline Review Protocol
+- **Meta Guideline**: All new guidelines must be tagged `(UNREVIEWED) [Added: timestamp]`.
+- **Applied Tags**: All 19+ section/subsection headings in `GUIDELINES.md` now have review markers.
+
+### Backups
+- **Git Tag**: `recovery_point_c2ddb4e4`
+- **Git Branches**: `backup_from_c2ddb4e4`, `backup_main_20251211_2257`, `session_complete_20251211`
+- **Zip Archives**: `backup_snapshot_c2ddb4e4/content.zip`, `backup_snapshot_main_RETRY/content.zip`
+
 ## December 11, 2025 (22:06 EST) - (UNREVIEWED)
 
 ### Final Consistency Updates
