@@ -269,3 +269,10 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Verbatim:** "we need this for every section, every submost unit which reasonably expect to edit or insert at"
 **Action:**
 - Added `(UNREVIEWED) [Added: 2025-12-11 23:17]` to all `####` subsections in Section 0 (0.1-0.5).
+
+### 43. [2025-12-11 23:21] Defer Full Section Tagging to User
+**Status:** [Completed]
+**Verbatim:** "every section though not just section 0" ... "if too much just make that a gudieline going forward and a TODO for me to review do not bother to implement"
+**Action:**
+- Per user guidance, added TODO for user to tag remaining Sections 1-7.
+- Guideline established: All future guidelines get `(UNREVIEWED) [Added: ...]` tags.
