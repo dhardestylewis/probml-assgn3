@@ -305,3 +305,40 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Action:**
 - Added top-level CRITICAL guideline: Never abbreviate user prompts. Use `[followed by:]` for multi-prompt sequences.
 - Corrected 5 entries (#8, #12, #28, #33, #45) from `...` to `[followed by:]` notation.
+
+### 48. [2025-12-11 23:37] Test Long Nonsense Prompt
+**Status:** [Completed]
+**Verbatim:** "lets try this out for a long nonsense prompt
+D
+FAS
+DF
+AS
+F
+ASDF
+AS
+DF
+AS
+DF
+ASD
+FA
+SDF
+AS
+DF
+AS
+DF
+ASDF
+A
+SDF
+ASD
+F
+ASD
+FA
+SDF
+AS
+DF
+ASD
+F
+ASD
+F"
+**Action:**
+- Logged verbatim per new guideline (no abbreviation).
