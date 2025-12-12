@@ -3,7 +3,7 @@
 ## Priority Tasks
 
 ### P1 - Critical Completeness
-*(No active tasks)*
+- [ ] Review new GUIDELINES.md Section 0 (Version Control Safety) [Added: 2025-12-11 23:16]
 
 ### P2 - Important Refinements
 *(No active tasks)*

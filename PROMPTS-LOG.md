@@ -241,3 +241,25 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Verbatim:** "if detached do not switch"
 **Action:**
 - Updated Section 0.2 to explicitly prohibit branch switching while in detached HEAD state without permission.
+
+### 39. [2025-12-11 23:16] Add Guideline Review Protocol
+**Status:** [Completed]
+**Verbatim:** "all these gudielines we are insertin need to be marked unreviewed until i have reviewed them and inform you  that is a TODO for me and a GUDIELINE going forward"
+**Action:**
+- Added META guideline: All new guidelines must be marked `(UNREVIEWED)` until user confirms.
+- Tagged Section 0 as `(UNREVIEWED)`.
+- Added TODO for user to review new guidelines.
+
+### 40. [2025-12-11 23:17] Add Guideline Timestamp Requirement
+**Status:** [Completed]
+**Verbatim:** "we should also indicate when we insert guidelines - if you dont have that just use current time for now, that should be a gudieline"
+**Action:**
+- Added META guideline: New guidelines must include insertion timestamp.
+- Retroactively timestamped Section 0 as `[Added: 2025-12-11 23:17]`.
+
+### 41. [2025-12-11 23:18] Restore Missing TODO-COMPLETED.md
+**Status:** [Completed]
+**Verbatim:** "also are you missing a TODO-COMPLETED file present in that backed up commit?"
+**Action:**
+- Confirmed `TODO-COMPLETED.md` was present in backup commit `c2ddb4e4` but missing from current state.
+- Restored file from backup.

@@ -1,11 +1,13 @@
 # Project Guidelines (HW3 & Thesis)
 
 > **CRITICAL**: NEVER perform `git rebase` or `git reset` without explicit permission.
-> **CRITICAL**: When appending to `CHANGELOG.md`, always include the current timestamp.
-ok
+
+> **META**: All new guidelines must be marked `(UNREVIEWED)` until user confirms review.
+> **META**: All new guidelines must include insertion timestamp `[Added: YYYY-MM-DD HH:MM]`.
+
 ## P1 - Critical (Every Session)
 
-### 0. Version Control Safety
+### 0. Version Control Safety (UNREVIEWED) [Added: 2025-12-11 23:17]
 #### 0.1 Strict Prohibitions
 - **NO REBASE/RESET**: NEVER perform `git rebase` or `git reset` without explicit, written user permission.
 - **Data Loss Prevention**: These commands rewrite history and can cause irreversible data loss.
