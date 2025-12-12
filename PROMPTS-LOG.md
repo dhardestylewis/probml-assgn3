@@ -228,3 +228,10 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Action:**
 - Verified zip location in working directory (Regenerated as `backup_snapshot_main_RETRY` to be certain).
 - Confirmed user is in **Detached HEAD** state, but backup exists physically in workspace.
+
+### 37. [2025-12-11 23:14] Add Branch, Commit, and PR Hygiene Guidelines
+**Status:** [Completed]
+**Verbatim:** "come up with better branch and commit hygeine going forward put high prioritization in the GUIDELINES" ... "and pull requests too"
+**Action:**
+- Added comprehensive git hygiene rules to P1 - Critical section of `GUIDELINES.md`.
+- Sections 0.2-0.5: Branch hygiene, commit hygiene, push protocol, pull request protocol.
