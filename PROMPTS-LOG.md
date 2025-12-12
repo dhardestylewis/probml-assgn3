@@ -263,3 +263,9 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Action:**
 - Confirmed `TODO-COMPLETED.md` was present in backup commit `c2ddb4e4` but missing from current state.
 - Restored file from backup.
+
+### 42. [2025-12-11 23:19] Tag All Subsections with UNREVIEWED
+**Status:** [Completed]
+**Verbatim:** "we need this for every section, every submost unit which reasonably expect to edit or insert at"
+**Action:**
+- Added `(UNREVIEWED) [Added: 2025-12-11 23:17]` to all `####` subsections in Section 0 (0.1-0.5).

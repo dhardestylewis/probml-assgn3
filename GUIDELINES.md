@@ -8,29 +8,29 @@
 ## P1 - Critical (Every Session)
 
 ### 0. Version Control Safety (UNREVIEWED) [Added: 2025-12-11 23:17]
-#### 0.1 Strict Prohibitions
+#### 0.1 Strict Prohibitions (UNREVIEWED) [Added: 2025-12-11 23:17]
 - **NO REBASE/RESET**: NEVER perform `git rebase` or `git reset` without explicit, written user permission.
 - **Data Loss Prevention**: These commands rewrite history and can cause irreversible data loss.
 
-#### 0.2 Branch Hygiene
+#### 0.2 Branch Hygiene (UNREVIEWED) [Added: 2025-12-11 23:17]
 - **NO SWITCH IF DETACHED**: If in detached HEAD state, do NOT switch branches without explicit user permission. Commit work to a new branch first.
 - **Stay on Named Branch**: Avoid working in detached HEAD state. If detached, immediately create a branch from current state.
 - **Branch Naming**: Use descriptive names with timestamps: `feature_name_YYYYMMDD` or `session_work_YYYYMMDD`.
 - **Verify Before Switch**: Run `git status` before switching branches. Commit or stash all changes first.
 
-#### 0.3 Commit Hygiene
+#### 0.3 Commit Hygiene (UNREVIEWED) [Added: 2025-12-11 23:17]
 - **Verify Staging**: Run `git status` BEFORE every commit to confirm what will be committed.
 - **Atomic Commits**: Commit logically grouped changes with descriptive messages.
 - **Commit Frequently**: Commit after every meaningful change to avoid losing work.
 - **No Dangling Work**: Never leave uncommitted changes at end of session.
 
-#### 0.4 Push Protocol
+#### 0.4 Push Protocol (UNREVIEWED) [Added: 2025-12-11 23:17]
 - **Verify Before Push**: Run `git log -1 --name-status` to confirm the commit contains expected files.
 - **Confirm Branch**: Run `git branch` to verify you are on the intended branch before pushing.
 - **Local == Remote Check**: After push, compare remote branch contents against local to ensure match.
 - **Backup First**: Create a backup branch or snapshot before any complex git operations.
 
-#### 0.5 Pull Request Protocol
+#### 0.5 Pull Request Protocol (UNREVIEWED) [Added: 2025-12-11 23:17]
 - **Create PR for Major Changes**: Use pull requests for significant work (not quick fixes).
 - **Descriptive Title/Body**: PR title should summarize change; body should list what was done.
 - **Self-Review First**: Review the PR diff yourself before requesting review.
