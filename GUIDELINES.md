@@ -1,11 +1,14 @@
-# Project Guidelines (HW3 & Thesis)
+# Thesis Project Guidelines
 
 > **CRITICAL**: NEVER perform `git rebase` or `git reset` without explicit permission.
 
 > **CRITICAL**: NEVER abbreviate user prompts in `PROMPTS-LOG.md`. Record verbatim. If multiple prompts, use `[followed by:]` notation—never `...`.
 
+> **CRITICAL**: When appending to `CHANGELOG.md`, always include the current timestamp (date and time). (UNREVIEWED) [Added: 2025-12-12 00:06]
+
 > **META**: All new guidelines must be marked `(UNREVIEWED)` until user confirms review.
 > **META**: All new guidelines must include insertion timestamp `[Added: YYYY-MM-DD HH:MM]`.
+> **META**: When syncing external guidelines, MERGE with existing project-specific content—do not overwrite. Review previous commit if needed. (UNREVIEWED) [Added: 2025-12-12 00:06]
 
 ---
 
@@ -92,30 +95,50 @@ At the end of each **substantive answer**, include a short meta-calibration bloc
 - **No Direct Merge to Main**: Feature branches should be merged via PR, not direct push.
 - **Verify After Merge**: After PR is merged, verify `main` branch contains expected changes.
 
-### 1. Fact & Assignment Verification (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 1.1 Assignment Compliance (UNREVIEWED) [Added: 2025-12-11 23:27]
-- **Verify against `hw3_assignment.txt`**: Ensure every section explicitly answers prompt questions.
-- **Fact Verification**: Ensure claims about model performance (RMSE, R^2) match `hw3_verified.txt` or notebook outputs.
-- **External Verification**: Use web search to confirm external facts (e.g., NYC tax laws, property codes) if added.
+### 1. Requirement Compliance (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Verify against Guidelines**: Ensure content aligns with `UP Thesis Guidelines` and `UP Outline`.
+- **Check Constraints**: Monitor word counts, formatting requirements, and required sections (e.g., Abstract, Introduction types).
+- **Project-Specific**: For HW3, verify against `hw3_assignment.txt`. Ensure claims about model performance (RMSE, R²) match `hw3_verified.txt` or notebook outputs.
 
-#### 1.2 Source Priority (UNREVIEWED) [Added: 2025-12-11 23:27]
+### 2. Fact Verification (UNREVIEWED) [Added: 2025-12-12 00:06]
+
+#### 2.1 External Verification (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Always externally verify factual claims** before marking as correct
+- Use web search to confirm dates, names, percentages, and events
+- Compare document claims against authoritative sources
+
+#### 2.2 Source Priority (UNREVIEWED) [Added: 2025-12-12 00:06]
 Prioritize sources in this order:
-1. Course materials / Textbook (Murphy)
-2. Original methodology papers (MIWAE, VAE)
-3. Government/Official sources (NYC Dept. of Planning, NYC Dept. of Finance)
-4. Academic domain papers (Real Estate Economics)
+1. Government sources (texas.gov, austintexas.gov, capitol.texas.gov, NYC Dept. of Planning, NYC Dept. of Finance)
+2. Academic sources (university research, course materials, textbooks like Murphy)
+3. Original methodology papers (MIWAE, VAE)
+4. Established news organizations (Texas Tribune, KUT)
+5. Official organizational sites
 
-### 2. Citation Integrity (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 2.1 Citation Checking (UNREVIEWED) [Added: 2025-12-11 23:27]
+#### 2.3 Verification Steps (UNREVIEWED) [Added: 2025-12-12 00:06]
+1. Search for claims in target document
+2. Check if cited reference exists in references.bib
+3. Externally verify factual accuracy via web search
+4. Compare authoritative sources vs current citations
+5. Update bib entries or inline citations as needed
+
+### 3. Citation Integrity (UNREVIEWED) [Added: 2025-12-11 23:27]
+
+#### 3.1 Citation Checking (UNREVIEWED) [Added: 2025-12-11 23:27]
 - **Verify inline citations**: Ensure `\cite{key}` commands have matching `bib` entries.
 - **Search**: Use author name, title words, or year to confirm correct key usage.
+
+#### 3.2 Adding New Entries (UNREVIEWED) [Added: 2025-12-12 00:06]
+- Use verified external sources
+- Note the verification date in comments
 
 ---
 
 ## P2 - Important (Regular Maintenance)
 
-### 3. Bibliography Management (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 3.1 Formatting Standard (UNREVIEWED) [Added: 2025-12-11 23:27]
+### 4. Bibliography Management (UNREVIEWED) [Added: 2025-12-11 23:27]
+
+#### 4.1 Formatting Standard (UNREVIEWED) [Added: 2025-12-11 23:27]
 ```bibtex
 @article{key,
 
@@ -127,53 +150,102 @@ Prioritize sources in this order:
 
 }
 ```
-- Blank line between each field.
-- Two-space indentation for fields.
+- Blank line after `@type{key,`
+- Blank line between each field
+- Two-space indentation for fields
 
-#### 3.2 Organization (UNREVIEWED) [Added: 2025-12-11 23:27]
+#### 4.2 Organization (UNREVIEWED) [Added: 2025-12-11 23:27]
 Use commented section headers:
-- Primary Sources (Methodology)
-- Domain Sources (Real Estate, Economics)
+- Primary Sources (Government, Court, Methodology)
+- Secondary Sources (Academic, Domain)
+- News Sources
+- Organizational Sources
 - Data Sources (NYC Open Data)
 
-### 4. Documentation (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 4.1 Session Tracking (UNREVIEWED) [Added: 2025-12-11 23:27]
-- **Prompt Log**: Append conversation prompts to `PROMPTS-LOG.md`.
-  - **Start with Timestamp**: Begin every new entry with a timestamp (e.g., `[2025-12-11 21:49]`).
-- **Changelog**: Record session changes in `CHANGELOG.md` with date and time.
+### 5. Documentation (UNREVIEWED) [Added: 2025-12-11 23:27]
+
+#### 5.1 Session Tracking (UNREVIEWED) [Added: 2025-12-11 23:27]
+- **Prompt Logging**: Append conversation prompts (or a summary) to `PROMPTS-LOG.md` in the root directory.
+- **Timestamping**: Every new insertion in `PROMPTS-LOG.md` MUST be preceded by a header with the current timestamp (e.g., `### N. [YYYY-MM-DD HH:MM] Description`).
+- **Full Fidelity**: Never truncate or use ellipses (...). Log the exact full text of the prompt to ensure complete context is preserved.
+- **Consistent Structure**: Use a numbered list for each prompt turn.
+- **Major Decisions**: Record major decisions in `CHANGELOG.md` with date and time.
 - **Append ONLY**: Do not revise existing logs; add new entries at the end.
 - **Review Status**: Mark historical entries as `(REVIEWED)` and new entries as `(UNREVIEWED)`.
+- Create a `TODO` item for reviewing UNREVIEWED logs.
 
-#### 4.2 Version Control (UNREVIEWED) [Added: 2025-12-11 23:27]
-- Check status frequently.
-- Commit logically grouped changes.
+#### 5.2 Version Control (UNREVIEWED) [Added: 2025-12-11 23:27]
+- **Commit**: Commit frequently with descriptive messages.
+- **Push**: Push to remote after each logical unit of work.
 
-### 5. TODO Management (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 5.1 Insertion Policy (UNREVIEWED) [Added: 2025-12-11 23:27]
-- **Context-Aware Insertion**: Do not blindly append new items.
-- **Prioritize Immediately**: Assess priority (P1, P2, P3) and insert into the corresponding section.
-- **Best Prioritized Place**: Insert logically within the priority group.
-- **Renumbering**: Update numbering if inserting into a list.
+### 6. TODO Management (UNREVIEWED) [Added: 2025-12-11 23:27]
 
-#### 5.2 Task Archival (UNREVIEWED) [Added: 2025-12-11 23:27]
-- **Move to Completed**: Regularly migrate checked `[x]` items from `TODO.md` to `TODO-COMPLETED.md`.
-- **Timestamping**: Append a completion timestamp `[YYYY-MM-DD HH:MM]` to the end of each archived item.
+#### 6.1 Insertion Policy (UNREVIEWED) [Added: 2025-12-11 23:27]
+- **Context-Aware Insertion**: Do not blindly append new items (TODOs, guideline sections, or list entries) to the top or bottom of files.
+- **Prioritize Immediately**: Assess the priority of the new item (P1, P2, P3, or High Priority) and insert it into the corresponding section or tier.
+- **Best Prioritized Place**: Insert the item in the most logical position within its priority group (e.g., grouping similar tasks, respecting dependencies, or ordering by importance).
+- **Unified Structure**: Do not create separate "Future" or "Deferred" sections outside the P1/P2/P3 hierarchy. Tag future items (e.g., `[Final Project]`) within their appropriate priority level.
+- **Renumbering**: If inserting into a numbered list or structured sequence (like guideline sections), update numbering to maintain consistency.
+- **Timestamp Insertion**: Append `[Added: YYYY-MM-DD HH:MM]` to every new item upon insertion.
+- **Maintain Structure**: Ensure the item is placed logically within its priority group relative to others.
+
+#### 6.2 Completion Policy (UNREVIEWED) [Added: 2025-12-11 23:27]
+- **Move to Archive**: When a task is done, move it from `TODO.md` to `TODO-COMPLETED.md`.
+- **Maintain Structure**: Place the completed item under its corresponding Priority Header (P1, P2, P3) in `TODO-COMPLETED.md`.
+- **Timestamping**: Append the completion timestamp to the item (e.g., `[Completed: YYYY-MM-DD HH:MM]`).
 - **Clean Active List**: Keep `TODO.md` focused only on active or pending work.
-
 
 ---
 
 ## P3 - Housekeeping
 
-### 6. File Organization (UNREVIEWED) [Added: 2025-12-11 23:27]
-#### 6.1 Naming Conventions (UNREVIEWED) [Added: 2025-12-11 23:27]
+### 7. Style & Rigor (Thesis Standards) (UNREVIEWED) [Added: 2025-12-12 00:06]
+
+#### 7.1 Textual Rules (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Counts and Notation**: Avoid informal `n=X` notation in narrative text. Spell out counts (e.g., "The dataset consists of 122,712 properties").
+- **Hyphens & Dashes**: Use plain hyphens or colons/commas. Avoid em-dashes.
+- **Abbreviations**: Expand parenthetical lists into plain English.
+
+#### 7.2 Data Description (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Date Ranges**: Explicitly state the temporal coverage of every data source.
+- **Source Specificity**: Distinguish between Open Data downloads and Public Information Requests (PIR).
+
+#### 7.3 Timeline Formatting (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Structure**: Use `I) YYYY Month-Month` structure for timeline sections.
+- **Inner Tasks**: Use `MM/DD-MM/DD` format for specific task ranges.
+
+### 8. File Organization (UNREVIEWED) [Added: 2025-12-11 23:27]
+
+#### 8.1 Naming Conventions (UNREVIEWED) [Added: 2025-12-11 23:27]
 | Suffix | Meaning |
 |--------|---------|
 | `-SUBMITTED` | Finalized/submitted work |
+| `-TO_INTEGRATE` | Content pending integration |
+| `-COMPREHENSIVE` | Complete/long-form documents |
+| `-OLD` | Superseded/deprecated content |
 | `_assignment` | Original assignment prompts/materials |
 | `.d/` | LaTeX projects or grouped files |
+| `#-` prefix | Chronological order (e.g., `1-`, `2.1-`, `2.2-`) |
+| `*.1, *.2` | Parallel documents (same base number, `.1` = likely first) |
 
-#### 6.2 Directory Structure (UNREVIEWED) [Added: 2025-12-11 23:27]
+#### 8.2 Directory Structure (UNREVIEWED) [Added: 2025-12-11 23:27]
+
+**Thesis Project:**
+```
+thesis/
+├── Thesis_Draft/
+│   └── Thesis_Draft_Reference_Materials/
+│       ├── Prompts.d/      # Session prompts by quality tier
+│       ├── Background-COMPREHENSIVE.d/
+│       └── references.bib
+├── Assignments_and_Proposal-SUBMITTED/
+├── Deprecated_Writings/    # Numbered chronologically with README
+├── TODO.md
+├── GUIDELINES.md
+└── CHANGELOG.md
+```
+
+**HW3/ML Assignment Project:**
 ```
 probml-assgn3/
 ├── hws/
@@ -187,8 +259,16 @@ probml-assgn3/
 └── PROMPTS-LOG.md
 ```
 
-#### 6.3 README Requirements (UNREVIEWED) [Added: 2025-12-11 23:27]
-- Add `README.md` to any directory with non-obvious organization.
+#### 8.3 README Requirements (UNREVIEWED) [Added: 2025-12-11 23:27]
+- Add `README.md` to any directory with non-obvious organization
+- Explain numbering schemes, content relationships, or special conventions
 
-### 7. Safe Deletion (UNREVIEWED) [Added: 2025-12-11 23:27]
-- Delete files only after verifying content is captured elsewhere.
+### 9. Safe Deletion (UNREVIEWED) [Added: 2025-12-11 23:27]
+- Delete files only after verifying content is captured elsewhere
+- Track deferred work in `TODO.md` with clear, actionable items
+
+### 10. Session Wrap-Up (UNREVIEWED) [Added: 2025-12-12 00:06]
+- **Log Prompts**: Ensure all recent prompts are appended to `PROMPTS-LOG.md` with a timestamp, following full-fidelity rules.
+- **Update Changelog**: Add a timestamped entry to `CHANGELOG.md` summarizing key changes, decisions, and completed tasks.
+- **Review TODOs**: Verify all completed work is checked off in `TODO.md` and moved to `TODO-COMPLETED.md`.
+- **Final Commit & Push**: Stage and commit all project changes with a descriptive message, then push to remote (e.g., `git commit -am "..."; git push`).
