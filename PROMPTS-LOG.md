@@ -235,3 +235,9 @@ This document logs the verbatim (or summarized where verbatim is unavailable) pr
 **Action:**
 - Added comprehensive git hygiene rules to P1 - Critical section of `GUIDELINES.md`.
 - Sections 0.2-0.5: Branch hygiene, commit hygiene, push protocol, pull request protocol.
+
+### 38. [2025-12-11 23:15] Clarify Detached HEAD Policy
+**Status:** [Completed]
+**Verbatim:** "if detached do not switch"
+**Action:**
+- Updated Section 0.2 to explicitly prohibit branch switching while in detached HEAD state without permission.

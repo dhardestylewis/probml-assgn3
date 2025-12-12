@@ -11,7 +11,8 @@ ok
 - **Data Loss Prevention**: These commands rewrite history and can cause irreversible data loss.
 
 #### 0.2 Branch Hygiene
-- **Stay on Named Branch**: Avoid working in detached HEAD state. If detached, immediately create a branch.
+- **NO SWITCH IF DETACHED**: If in detached HEAD state, do NOT switch branches without explicit user permission. Commit work to a new branch first.
+- **Stay on Named Branch**: Avoid working in detached HEAD state. If detached, immediately create a branch from current state.
 - **Branch Naming**: Use descriptive names with timestamps: `feature_name_YYYYMMDD` or `session_work_YYYYMMDD`.
 - **Verify Before Switch**: Run `git status` before switching branches. Commit or stash all changes first.
 
