@@ -768,126 +768,122 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     # --- SHAP Attribution (brief test) ---
     # Use SHAP KernelExplainer to attribute latent dimensions to input features
     print("\n[Eval] SHAP attribution for latent dimensions...")
-    shap_z1_label, shap_z2_label = None, None
+    # --- Encoder Weight Analysis (SHAP) ---
+    # "We computed SHAP attributions for the encoder latent means z_mu(x) to quantify which 
+    # standardized input features most strongly influence each latent coordinate."
+    # Important: Latent coordinates are not identifiable up to rotation. These are run-specific diagnostics.
+    
     try:
         import shap
+        # Use simple background from the STANDARDIZED input (X_all_np)
+        # This matches exactly what the encoder receives.
+        n_background = min(100, len(X_all_np))
+        n_explain = min(100, len(X_all_np))
         
-        # Define encoder function: input features -> latent mean
-        def encoder_fn(X_in):
-            """Forward pass through encoder to get latent means."""
+        # Sample background from standardized data
+        rng_shap = np.random.default_rng(42)
+        bg_idx = rng_shap.choice(len(X_all_np), n_background, replace=False)
+        background = X_all_np[bg_idx]
+        
+        # Sample explain set
+        explain_idx = rng_shap.choice(len(X_all_np), n_explain, replace=False)
+        X_explain = X_all_np[explain_idx]
+        
+        # Define wrapper to get ONLY z1 and z2 (standardized input -> latent means)
+        def encoder_z1z2(x_batch):
+            # Check if x_batch is tensor or numpy
+            if isinstance(x_batch, np.ndarray):
+                x_batch = torch.from_numpy(x_batch).float().to(DEVICE)
+            
             with torch.no_grad():
-                X_tensor = torch.tensor(X_in, dtype=torch.float32, device=DEVICE)
-                # Use encode() method which returns (mu, logvar) tuple
-                result = vae_model.encode(X_tensor)
-                # Handle tuple outputs (mean, logvar)
-                if isinstance(result, tuple):
-                    z_mean = result[0]
-                else:
-                    z_mean = result
-                return z_mean.cpu().numpy()
+                # Encode to get mu, logvar
+                mu, _ = vae_model.encode(x_batch)
+                # Return only first 2 dimensions
+                return mu[:, :2].cpu().numpy()
+
+        import time
+        start = time.time()
         
-        # Need to reconstruct input features for SHAP
-        # Use a small background sample for speed
-        n_background = min(100, len(mu_z))
-        n_explain = min(100, len(mu_z)) # Increased to 100 for stability (approx 10s)
+        # KernelSHAP on the z1,z2 projection
+        explainer = shap.KernelExplainer(encoder_z1z2, background)
+        shap_values = explainer.shap_values(X_explain)
         
-        # Get input data from df_pred using feature_names_x_out
-        if feature_names_x_out and len(feature_names_x_out) > 0:
-            # Check which features are available in df_pred
-            available_feats = [f for f in feature_names_x_out if f in df_pred.columns]
-            if len(available_feats) >= 3:
-                X_shap = df_pred[available_feats].values.astype(np.float32)
-                X_shap = np.nan_to_num(X_shap, nan=0)
-                
-                background = shap.sample(X_shap, n_background)
-                
-                import time
-                start = time.time()
-                
-                explainer = shap.KernelExplainer(encoder_fn, background)
-                shap_values = explainer.shap_values(X_shap[:n_explain])
-                
-                elapsed = time.time() - start
-                print(f"[Eval]   SHAP completed in {elapsed:.1f}s for {n_explain} samples")
-                
-                # Debug SHAP output
-                print(f"[Eval]   SHAP output type: {type(shap_values)}")
-                if isinstance(shap_values, list):
-                    print(f"[Eval]   SHAP output list len: {len(shap_values)}")
-                elif hasattr(shap_values, 'shape'):
-                    print(f"[Eval]   SHAP output shape: {shap_values.shape}")
+        elapsed = time.time() - start
+        print(f"[Eval]   SHAP completed in {elapsed:.1f}s for {n_explain} samples")
+        
+        # Handling SHAP output (list of arrays for multi-output)
+        z1_shap, z2_shap = None, None
+        
+        if isinstance(shap_values, list) and len(shap_values) >= 2:
+            z1_shap = shap_values[0]
+            z2_shap = shap_values[1]
+        elif isinstance(shap_values, np.ndarray):
+            if shap_values.ndim == 3: # (N, features, outputs)
+                z1_shap = shap_values[:, :, 0]
+                z2_shap = shap_values[:, :, 1]
+            elif shap_values.ndim == 2:
+                print("[Eval]   SHAP returned 2D array. Using as z1.")
+                z1_shap = shap_values
+        
+        # Feature Renaming Map
+        FEATURE_RENAMES = {
+            'building_sales_sum': 'Bldg Sales Vol',
+            'unit_sales_mean_roll2': 'Recent Trend',
+            'unique_units': 'Unit Count',
+            'log_gross_sqft': 'Log Size',
+            'gross_sqft': 'Size',
+            'year_built': 'Year Built',
+            'log_sale_price': 'Log Price',
+            'sale_price': 'Price'
+        }
+        
+        def format_shap_label(z_shap, z_idx):
+            if z_shap is None: return None
+            
+            z_imp = np.abs(z_shap).mean(axis=0)
+            total_imp = z_imp.sum() + 1e-9
+            
+            top3_idx = np.argsort(z_imp)[-3:][::-1]
+            
+            parts = []
+            for i in top3_idx:
+                # Use feature_names_x_out which matches column order of X_all_np
+                feat_raw = feature_names_x_out[i]
+                feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) 
+                pct = (z_imp[i] / total_imp) * 100
+                parts.append(f"{pct:.0f}% {feat_name}")
+            
+            return f"z{z_idx}\n({', '.join(parts)})"
 
-                # Handle both list (multi-output) and array (single/stacked) cases
-                z1_shap, z2_shap = None, None
-                
-                if isinstance(shap_values, list) and len(shap_values) >= 2:
-                    z1_shap = shap_values[0] # (N, n_features)
-                    z2_shap = shap_values[1] # (N, n_features)
-                elif isinstance(shap_values, np.ndarray):
-                    # If array, might be (N, n_features, n_outputs) or just (N, n_features) if 1D
-                    if shap_values.ndim == 3 and shap_values.shape[2] >= 2:
-                         z1_shap = shap_values[:, :, 0]
-                         z2_shap = shap_values[:, :, 1]
-                    elif shap_values.ndim == 2:
-                         print("[Eval]   SHAP returned 2D array (single output?). Using as z1.")
-                         z1_shap = shap_values
-                         # Cannot get z2 from single output
+        if z1_shap is not None:
+            shap_z1_label = format_shap_label(z1_shap, 1)
+            if shap_z1_label: z1_label = shap_z1_label.replace("\n", " ")
 
-                # Feature Renaming Map
-                FEATURE_RENAMES = {
-                    'building_sales_sum': 'Bldg Sales Vol',
-                    'unit_sales_mean_roll2': 'Recent Trend',
-                    'unique_units': 'Unit Count',
-                    'log_gross_sqft': 'Log Size',
-                    'gross_sqft': 'Size',
-                    'year_built': 'Year Built',
-                    'log_sale_price': 'Log Price',
-                    'sale_price': 'Price'
-                }
-                
-                def format_shap_label(z_shap, z_idx):
-                    if z_shap is None: return None
-                    
-                    z_imp = np.abs(z_shap).mean(axis=0)
-                    total_imp = z_imp.sum() + 1e-9
-                    
-                    top3_idx = np.argsort(z_imp)[-3:][::-1]
-                    
-                    parts = []
-                    for i in top3_idx:
-                        feat_raw = available_feats[i]
-                        feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) # Fallback to raw if not in dict
-                        pct = (z_imp[i] / total_imp) * 100
-                        parts.append(f"{pct:.0f}% {feat_name}")
-                    
-                    return f"z{z_idx}\n({', '.join(parts)})"
-
-                if z1_shap is not None:
-                    shap_z1_label = format_shap_label(z1_shap, 1)
-                    if shap_z1_label: z1_label = shap_z1_label.replace("\n", " ") # Single line for print
-
-                if z2_shap is not None:
-                    shap_z2_label = format_shap_label(z2_shap, 2)
-                    if shap_z2_label: z2_label = shap_z2_label.replace("\n", " ")
-
-                if z1_shap is not None or z2_shap is not None:
-                    print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
-                    
-                    # Latent redundancy check
-                    if z1_shap is not None and z2_shap is not None:
-                        # Correlation of the latent values themselves
-                        # We don't have z values here, only shap values.
-                        # But we can check SHAP profile similarity
-                        shap_corr = np.corrcoef(z1_shap.ravel(), z2_shap.ravel())[0,1]
-                        print(f"[Eval]   SHAP Global Correlation (z1 vs z2): {shap_corr:.3f}")
-                        if shap_corr > 0.9:
-                             print("[Eval]   WARNING: Latent dimensions appear highly redundant based on SHAP profiles.")
-
-                else:
-                    print("[Eval]   Could not extract SHAP values for first 2 dimensions.")
+        if z2_shap is not None:
+            shap_z2_label = format_shap_label(z2_shap, 2)
+            if shap_z2_label: z2_label = shap_z2_label.replace("\n", " ")
+        
+        if z1_shap is not None or z2_shap is not None:
+            print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
+            
+            # Principled Redundancy Check: Latent Value Correlation
+            # We use the full means mu_z, not the shap values
+            z1_vals = mu_z[:, 0]
+            z2_vals = mu_z[:, 1]
+            latent_corr = np.corrcoef(z1_vals, z2_vals)[0, 1]
+            
+            print(f"[Eval]   Latent Coord Correlation (z1 vs z2): {latent_corr:.3f}")
+            if abs(latent_corr) > 0.8:
+                 print("[Eval]   WARNING: High correlation between latent coordinates. "
+                       "Attributions may splits across redundant axes.")
+        else:
+            print("[Eval]   Could not extract SHAP values.")
 
     except Exception as e:
         print(f"[Eval]   SHAP attribution failed: {e}")
+        import traceback
+        traceback.print_exc()
+
     
     
     # Helper for KDE density contours
