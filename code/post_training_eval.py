@@ -451,13 +451,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             edgecolor='white', linewidth=0.3, label='Observed residuals', zorder=3)
     
     if HAVE_SCIPY:
-        # Fit parameters
-        mu_fit, std_fit = stats.norm.fit(resid_log)
-        df_fit, loc_fit, scale_fit = stats.t.fit(resid_log)
-        
-        # Symmetric x-grid centered on 0
-        x_max = max(abs(resid_log.min()), abs(resid_log.max())) + 0.5
-        x_grid = np.linspace(-x_max, x_max, 500)
+        # Use already-fitted parameters from above (df_fit, loc_fit, scale_fit)
         
         # Reference curves (light, dashed, behind)
         # Normal reference
@@ -600,9 +594,26 @@ except AttributeError:
 
 if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
-    # Compute symmetric axis limits centered on 0 for latent space
-    z_abs_max = max(np.abs(mu_z[:, 0]).max(), np.abs(mu_z[:, 1]).max()) * 1.05
-    z_lim = (-z_abs_max, z_abs_max)
+    # Compute per-dimension statistics to decide on axis handling
+    z1_std, z2_std = np.std(mu_z[:, 0]), np.std(mu_z[:, 1])
+    z1_range = np.ptp(mu_z[:, 0])  # peak-to-peak
+    z2_range = np.ptp(mu_z[:, 1])
+    
+    print(f"[Eval] Latent dimension stats: z1_std={z1_std:.3f}, z2_std={z2_std:.3f}")
+    print(f"[Eval] Latent dimension ranges: z1_range={z1_range:.3f}, z2_range={z2_range:.3f}")
+    
+    # Decision: use equal axes only if variances are within 2x of each other
+    # Otherwise, let each axis have its own scale to honestly represent structure
+    variance_ratio = max(z1_std, z2_std) / min(z1_std, z2_std) if min(z1_std, z2_std) > 0 else 1
+    use_equal_axes = variance_ratio < 2.0
+    
+    if use_equal_axes:
+        z_abs_max = max(np.abs(mu_z[:, 0]).max(), np.abs(mu_z[:, 1]).max()) * 1.05
+        z_lim = (-z_abs_max, z_abs_max)
+        print(f"[Eval] Using equal axes (variance ratio={variance_ratio:.2f} < 2.0)")
+    else:
+        z_lim = None  # Will use per-axis limits
+        print(f"[Eval] Using per-axis limits (variance ratio={variance_ratio:.2f} >= 2.0)")
     
     # Helper to format dollars
     def format_price(val):
@@ -646,10 +657,11 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dim 1", fontsize=11)
         ax.set_ylabel("Latent Dim 2", fontsize=11)
         
-        # Symmetric axes centered on 0, equal aspect
-        ax.set_xlim(z_lim)
-        ax.set_ylim(z_lim)
-        ax.set_aspect('equal', adjustable='box')
+        # Apply axes based on variance analysis
+        if use_equal_axes:
+            ax.set_xlim(z_lim)
+            ax.set_ylim(z_lim)
+            ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Points colored by sale price decile", fontsize=9, color='gray', pad=3)
@@ -673,9 +685,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dim 1", fontsize=11)
         ax.set_ylabel("Latent Dim 2", fontsize=11)
         
-        ax.set_xlim(z_lim)
-        ax.set_ylim(z_lim)
-        ax.set_aspect('equal', adjustable='box')
+        if use_equal_axes:
+            ax.set_xlim(z_lim)
+            ax.set_ylim(z_lim)
+            ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing point concentration", fontsize=9, color='gray', pad=3)
@@ -709,9 +722,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_xlabel("Latent Dim 1", fontsize=11)
             ax.set_ylabel("Latent Dim 2", fontsize=11)
             
-            ax.set_xlim(z_lim)
-            ax.set_ylim(z_lim)
-            ax.set_aspect('equal', adjustable='box')
+            if use_equal_axes:
+                ax.set_xlim(z_lim)
+                ax.set_ylim(z_lim)
+                ax.set_aspect('equal', adjustable='box')
             
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title(f"Points colored by {size_col}", fontsize=9, color='gray', pad=3)
@@ -736,31 +750,40 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         # Aggregate to first letter (major category)
         bldg_series = df_pred[bldg_class_col].astype(str).str[0].str.upper()
         
-        # Standard NYC building class categories
+        # NYC DOF Building Class codes - organized by major category per official taxonomy
+        # Source: NYC Department of Finance Property Classification Codes
+        # Ordered: Residential -> Commercial -> Industrial -> Special Purpose -> Government/Other
         class_labels = {
-            'A': 'Residential (1-2 fam)',
-            'B': 'Residential (3+ fam)',
+            # RESIDENTIAL (1-4 family)
+            'A': '1-2 Family Dwellings',
+            'B': '2 Family Dwellings', 
+            # RESIDENTIAL (Multi-family)
             'C': 'Walk-up Apartments',
             'D': 'Elevator Apartments',
-            'E': 'Warehouses',
-            'F': 'Factory/Industrial',
-            'G': 'Garages',
+            'R': 'Condominiums',
+            'S': 'Mixed Residential',
+            # COMMERCIAL
+            'K': 'Retail/Stores',
+            'O': 'Office Buildings',
             'H': 'Hotels',
-            'I': 'Hospitals',
-            'J': 'Theaters',
-            'K': 'Stores',
             'L': 'Loft Buildings',
+            # INDUSTRIAL
+            'E': 'Warehouses',
+            'F': 'Factories/Industrial',
+            'G': 'Garages/Gas Stations',
+            # SPECIAL PURPOSE
+            'I': 'Hospitals/Health',
+            'J': 'Theaters/Entertainment',
             'M': 'Religious',
-            'N': 'Asylums',
-            'O': 'Offices',
+            'N': 'Asylums/Nursing Homes',
             'P': 'Indoor Recreation',
             'Q': 'Outdoor Recreation',
-            'R': 'Condos',
-            'S': 'Mixed Residential',
-            'T': 'Transport',
+            'T': 'Transportation',
+            'W': 'Educational',
+            # GOVERNMENT/OTHER
             'U': 'Utility',
-            'V': 'Vacant',
-            'W': 'Education',
+            'V': 'Vacant Land',
+            'Y': 'Government Property',
             'Z': 'Miscellaneous',
         }
         
@@ -782,12 +805,13 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dim 1", fontsize=11)
         ax.set_ylabel("Latent Dim 2", fontsize=11)
         
-        ax.set_xlim(z_lim)
-        ax.set_ylim(z_lim)
-        ax.set_aspect('equal', adjustable='box')
+        if use_equal_axes:
+            ax.set_xlim(z_lim)
+            ax.set_ylim(z_lim)
+            ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space by Building Class", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Aggregated to major category (first letter)", fontsize=9, color='gray', pad=3)
+        ax.set_title("NYC DOF Building Classification", fontsize=9, color='gray', pad=3)
         
         # Legend outside if many classes
         if len(uniques) <= 8:
