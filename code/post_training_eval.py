@@ -500,63 +500,67 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
 
-    # --- 6b. QQ-plot vs Normal with multiple confidence bands ---
+    # --- 6b. QQ-plot vs Student-t reference ---
     if HAVE_SCIPY:
         fig, ax = plt.subplots(figsize=(6, 6))
         
-        (osm, osr), (slope, intercept, r) = stats.probplot(resid_log, dist="norm", plot=None)
-        
-        # Bootstrap confidence bands for Normal
+        # Use Student-t as reference distribution (not Normal)
+        # Generate theoretical Student-t quantiles
         n_samples = len(resid_log)
+        
+        # Theoretical quantiles from fitted Student-t
+        p = (np.arange(1, n_samples + 1) - 0.5) / n_samples
+        theoretical_quantiles = stats.t.ppf(p, df=df_fit, loc=loc_fit, scale=scale_fit)
+        
+        # Ordered sample quantiles
+        sample_quantiles = np.sort(resid_log)
+        
+        # Fit line (should be close to y=x for good fit)
+        slope_t, intercept_t = np.polyfit(theoretical_quantiles, sample_quantiles, 1)
+        r_t = np.corrcoef(theoretical_quantiles, sample_quantiles)[0, 1]
+        
+        # Bootstrap confidence bands for Student-t
         n_boot = 200
         rng = np.random.default_rng(42)
         
-        # Normal bands
-        sim_normal = np.sort(rng.normal(mu_fit, std_fit, (n_boot, n_samples)), axis=1)
-        lower_norm = np.percentile(sim_normal, 2.5, axis=0)
-        upper_norm = np.percentile(sim_normal, 97.5, axis=0)
-        
-        # Student-t bands (using fitted df)
         sim_t = np.sort(stats.t.rvs(df=df_fit, loc=loc_fit, scale=scale_fit, 
                                      size=(n_boot, n_samples), random_state=rng), axis=1)
         lower_t = np.percentile(sim_t, 2.5, axis=0)
         upper_t = np.percentile(sim_t, 97.5, axis=0)
         
-        # Plot bands (hatching for distinction)
-        ax.fill_between(osm, lower_norm, upper_norm, color='#3498db', alpha=0.15, 
-                        label='95% CI (Normal)', zorder=1)
-        ax.fill_between(osm, lower_t, upper_t, color='#e74c3c', alpha=0.1, 
-                        hatch='///', edgecolor='#e74c3c', linewidth=0,
-                        label=f'95% CI (Student-t ν={df_fit:.0f})', zorder=1)
+        # Plot confidence band (solid fill, prominent)
+        ax.fill_between(theoretical_quantiles, lower_t, upper_t, 
+                        color='#e74c3c', alpha=0.2, 
+                        label=f'95% CI (Student-t ν={df_fit:.1f})', zorder=1)
         
-        # Fit line (reference, subtle)
-        ax.plot(osm, slope*osm + intercept, color='gray', linestyle='--', 
-                linewidth=1.5, alpha=0.7, label='Reference line', zorder=2)
+        # Reference line: y = x (perfect fit)
+        ref_line = np.array([theoretical_quantiles.min(), theoretical_quantiles.max()])
+        ax.plot(ref_line, ref_line, color='#e74c3c', linestyle='--', 
+                linewidth=2, alpha=0.8, label='Perfect fit (y=x)', zorder=2)
         
-        # Data points - layered transparency, topmost opaque with edge
-        ax.scatter(osm, osr, c='#2ecc71', s=12, alpha=0.4, edgecolors='none', zorder=3)
-        # Add fewer opaque points on top for visibility
-        step = max(1, len(osm) // 100)
-        ax.scatter(osm[::step], osr[::step], c='#2ecc71', s=20, alpha=0.9, 
+        # Data points - layered transparency
+        ax.scatter(theoretical_quantiles, sample_quantiles, c='#2ecc71', s=12, 
+                   alpha=0.4, edgecolors='none', zorder=3)
+        step = max(1, n_samples // 100)
+        ax.scatter(theoretical_quantiles[::step], sample_quantiles[::step], 
+                   c='#2ecc71', s=20, alpha=0.9, 
                    edgecolors='#1a7a3e', linewidths=0.5, zorder=4)
         
-        ax.set_xlabel("Theoretical Quantiles", fontsize=11)
+        ax.set_xlabel(f"Theoretical Quantiles (Student-t, ν={df_fit:.1f})", fontsize=11)
         ax.set_ylabel("Ordered Residuals", fontsize=11)
         
-        # Title + annotation
+        # Title
         fig.suptitle("Q-Q Plot", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Residuals vs Normal reference  ·  Log-transformed prices", 
-                     fontsize=9, color='gray', pad=3)
+        ax.set_title("Residuals vs Student-t reference", fontsize=9, color='gray', pad=3)
         
-        # Annotation for slope/R² in corner
-        ax.text(0.05, 0.95, f"Slope: {slope:.3f}\n$R^2$: {r**2:.3f}", 
+        # Annotation for fit quality
+        ax.text(0.05, 0.95, f"Slope: {slope_t:.3f}\n$R^2$: {r_t**2:.3f}", 
                 transform=ax.transAxes, fontsize=8, verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
         
-        # Equal aspect ratio for true 45° reference line
+        # Equal aspect ratio
         ax.set_aspect('equal', adjustable='box')
-        # Match axis limits so 45° line appears at 45°
-        all_vals = np.concatenate([osm, osr])
+        all_vals = np.concatenate([theoretical_quantiles, sample_quantiles])
         lim = max(abs(all_vals.min()), abs(all_vals.max())) * 1.05
         ax.set_xlim(-lim, lim)
         ax.set_ylim(-lim, lim)
