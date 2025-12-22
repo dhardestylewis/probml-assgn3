@@ -639,10 +639,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
-    z_lim_fixed = (-0.5, 1)  # Asymmetric: focus on core structure
+    z_lim_fixed = (-0.2, 0.8)  # Focused on core structure
     
     # Count how many points fall outside these limits
-    outside_mask = (mu_z[:, 0] < -0.5) | (mu_z[:, 0] > 1) | (mu_z[:, 1] < -0.5) | (mu_z[:, 1] > 1)
+    outside_mask = (mu_z[:, 0] < -0.2) | (mu_z[:, 0] > 0.8) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.8)
     n_outside = outside_mask.sum()
     print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
     
@@ -682,16 +682,22 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             z2_correlations[feat_name] = corr_z2
             print(f"[Eval]   {feat_name}: z1 corr={corr_z1:.3f}, z2 corr={corr_z2:.3f}")
     
-    # Auto-label based on strongest correlations
+    # Auto-label based on top 3 correlated features
     def get_label_for_dim(corr_dict, dim_num):
         if not corr_dict:
             return f"z{dim_num}"
-        # Find feature with strongest absolute correlation
-        best_feat = max(corr_dict.keys(), key=lambda k: abs(corr_dict[k]))
-        best_corr = corr_dict[best_feat]
-        if abs(best_corr) >= 0.3:  # Only label if correlation is meaningful
-            direction = "+" if best_corr > 0 else "-"
-            return f"z{dim_num} ({direction}{best_feat}: r={best_corr:.2f})"
+        # Sort features by absolute correlation (descending)
+        sorted_feats = sorted(corr_dict.keys(), key=lambda k: abs(corr_dict[k]), reverse=True)
+        top_3 = sorted_feats[:3]
+        # Create label with top 3 features
+        feat_strs = []
+        for feat in top_3:
+            corr = corr_dict[feat]
+            if abs(corr) >= 0.1:  # Include if correlation is non-trivial
+                direction = "+" if corr > 0 else "-"
+                feat_strs.append(f"{direction}{feat}")
+        if feat_strs:
+            return f"z{dim_num} ({', '.join(feat_strs)})"
         else:
             return f"z{dim_num}"
     
