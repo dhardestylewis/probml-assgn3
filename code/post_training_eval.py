@@ -473,8 +473,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         df_lower = max(0.1, df_fit / 2)  # heavier tails (half the df), min 0.1
         df_upper = df_fit * 2  # lighter tails (double the df)
         
-        for nu_ref, style, lbl in [(df_lower, ':', f'ν={df_lower:.1f} (heavier)'), 
-                                    (df_upper, '-.', f'ν={df_upper:.1f} (lighter)')]:
+        # Reference lines: same gray color, different dash patterns
+        # Lower ν (heavier tails) = sparser dashes, higher ν (lighter) = denser dashes
+        for nu_ref, style, lbl in [(df_lower, (0, (5, 10)), f'ν={nu_ref:.1f} (heavier)'),  # sparse dash
+                                    (df_upper, (0, (3, 3)), f'ν={nu_ref:.1f} (lighter)')]:  # dense dash
             # Match variance: scale = std / sqrt(nu/(nu-2))
             if nu_ref > 2:
                 scale_ref = std_fit / np.sqrt(nu_ref / (nu_ref - 2))
@@ -482,11 +484,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                 scale_ref = std_fit * 0.5
             pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=mu_fit, scale=scale_ref)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
-                    alpha=0.6, label=f'Student-t {lbl}', zorder=1)
+                    alpha=0.7, label=f'Student-t {lbl}', zorder=1)
         
-        # Best-fit Student-t (prominent)
+        # Best-fit Student-t: same gray color but SOLID line (not dashed)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
-        ax.plot(x_grid, pdf_t_best, color='#e74c3c', linestyle='-', linewidth=2, 
+        ax.plot(x_grid, pdf_t_best, color='gray', linestyle='-', linewidth=2, 
                 alpha=0.9, label=f'Student-t fit (ν={df_fit:.1f})', zorder=2)
 
     ax.set_xlabel("Residual", fontsize=11)
@@ -633,14 +635,111 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     print(f"[Eval] Latent dimension ranges: z1_range={z1_range:.3f}, z2_range={z2_range:.3f}")
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
-    # This prevents extreme outliers from compressing the visualization
-    # Most latent values should fall within ±3 std of mean = 0 for standardized VAE
-    z_lim_fixed = (-4, 4)  # Fixed limits: captures ~99.99% of standard normal
+    # This focuses on the core structure rather than stretching to include outliers
+    z_lim_fixed = (-1, 1)  # Tight limits to focus on core structure
     
     # Count how many points fall outside these limits
-    outside_mask = (np.abs(mu_z[:, 0]) > 4) | (np.abs(mu_z[:, 1]) > 4)
+    outside_mask = (np.abs(mu_z[:, 0]) > 1) | (np.abs(mu_z[:, 1]) > 1)
     n_outside = outside_mask.sum()
     print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
+    
+    # --- Latent Dimension Correlation Analysis ---
+    # Analyze what each latent dimension correlates with to generate descriptive labels
+    print("\n[Eval] Analyzing latent dimension correlations...")
+    
+    # Features to correlate with
+    correlation_features = {}
+    if log_y_col in df_pred.columns:
+        correlation_features['Log Price'] = df_pred[log_y_col].astype(float).values
+    if price_col in df_pred.columns:
+        correlation_features['Price'] = df_pred[price_col].astype(float).values
+    
+    # Size features
+    size_cols = ["gross_sqft", "gross_square_feet", "land_sqft", "land_square_feet", "sqft", "total_units"]
+    size_col = next((c for c in size_cols if c in df_pred.columns), None)
+    if size_col:
+        correlation_features['Size'] = pd.to_numeric(df_pred[size_col], errors='coerce').values
+    
+    # Year features
+    year_cols = ["year_built", "yearbuilt", "construction_year"]
+    year_col = next((c for c in year_cols if c in df_pred.columns), None)
+    if year_col:
+        correlation_features['Year Built'] = pd.to_numeric(df_pred[year_col], errors='coerce').values
+    
+    # Compute correlations
+    z1_correlations = {}
+    z2_correlations = {}
+    for feat_name, feat_values in correlation_features.items():
+        # Only compute for valid (finite) values
+        valid_mask = np.isfinite(feat_values) & np.isfinite(mu_z[:, 0])
+        if valid_mask.sum() > 100:
+            corr_z1 = np.corrcoef(mu_z[valid_mask, 0], feat_values[valid_mask])[0, 1]
+            corr_z2 = np.corrcoef(mu_z[valid_mask, 1], feat_values[valid_mask])[0, 1]
+            z1_correlations[feat_name] = corr_z1
+            z2_correlations[feat_name] = corr_z2
+            print(f"[Eval]   {feat_name}: z1 corr={corr_z1:.3f}, z2 corr={corr_z2:.3f}")
+    
+    # Auto-label based on strongest correlations
+    def get_label_for_dim(corr_dict, dim_num):
+        if not corr_dict:
+            return f"z{dim_num}"
+        # Find feature with strongest absolute correlation
+        best_feat = max(corr_dict.keys(), key=lambda k: abs(corr_dict[k]))
+        best_corr = corr_dict[best_feat]
+        if abs(best_corr) >= 0.3:  # Only label if correlation is meaningful
+            direction = "+" if best_corr > 0 else "-"
+            return f"z{dim_num} ({direction}{best_feat}: r={best_corr:.2f})"
+        else:
+            return f"z{dim_num}"
+    
+    z1_label = get_label_for_dim(z1_correlations, 1)
+    z2_label = get_label_for_dim(z2_correlations, 2)
+    print(f"[Eval] Auto-generated latent labels: z1='{z1_label}', z2='{z2_label}'")
+    
+    # --- Encoder Weight Analysis ---
+    # Trace back which INPUT features contribute most to each latent dimension
+    print("\n[Eval] Analyzing encoder weights for input feature contributions...")
+    try:
+        # Get encoder weights from the model
+        encoder_weights = None
+        if hasattr(vae_model, 'encoder'):
+            # Try to get the first linear layer weights
+            for name, param in vae_model.encoder.named_parameters():
+                if 'weight' in name and param.dim() == 2:
+                    encoder_weights = param.detach().cpu().numpy()
+                    print(f"[Eval]   Found encoder layer: {name}, shape={encoder_weights.shape}")
+                    break
+        
+        if encoder_weights is not None and len(feature_names_x_out) > 0:
+            # Get output weights from last encoder layer to latent mean
+            latent_weights = None
+            for name, param in vae_model.named_parameters():
+                if 'mu' in name.lower() and 'weight' in name and param.dim() == 2:
+                    latent_weights = param.detach().cpu().numpy()
+                    print(f"[Eval]   Found latent mean layer: {name}, shape={latent_weights.shape}")
+                    break
+            
+            if latent_weights is not None:
+                # Analyze which input features have highest magnitude weights to each latent dim
+                n_latents = min(2, latent_weights.shape[0])
+                for lat_idx in range(n_latents):
+                    weights_to_latent = np.abs(latent_weights[lat_idx, :])
+                    # Sum up contribution through encoder if shapes allow
+                    if encoder_weights.shape[0] == latent_weights.shape[1]:
+                        # Direct connection: latent <- hidden <- input
+                        input_contrib = np.abs(encoder_weights).sum(axis=0)
+                    else:
+                        input_contrib = weights_to_latent
+                    
+                    # Get top contributing features
+                    if len(input_contrib) == len(feature_names_x_out):
+                        top_k = min(5, len(feature_names_x_out))
+                        top_indices = np.argsort(input_contrib)[-top_k:][::-1]
+                        top_features = [(feature_names_x_out[i], input_contrib[i]) for i in top_indices]
+                        print(f"[Eval]   z{lat_idx+1} top input features: {[(f, f'{w:.3f}') for f, w in top_features]}")
+    except Exception as e:
+        print(f"[Eval]   Encoder weight analysis failed: {e}")
+    
     
     # Helper for KDE density contours
     def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
@@ -752,9 +851,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(z_lim_fixed)
+        ax.set_ylim(z_lim_fixed)
+        ax.set_aspect('equal', adjustable='box')
         
         # Title centered on axes
         ax.set_title("Latent Space by Price\nScatter with density contours", 
@@ -785,9 +884,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(z_lim_fixed)
+        ax.set_ylim(z_lim_fixed)
+        ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing mean price per region", fontsize=9, color='gray', pad=3)
@@ -812,9 +911,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(z_lim_fixed)
+        ax.set_ylim(z_lim_fixed)
+        ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing point concentration", fontsize=9, color='gray', pad=3)
@@ -862,10 +961,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
             # Apply fixed axis limits
-                ax.set_xlim(z_lim_fixed)
-                ax.set_ylim(z_lim_fixed)
-                ax.set_aspect('equal', adjustable='box')
-            
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
+            ax.set_aspect('equal', adjustable='box')
+        
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title(f"Scatter with density contours · {size_col}", fontsize=9, color='gray', pad=3)
             
@@ -892,10 +991,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
             # Apply fixed axis limits
-                ax.set_xlim(z_lim_fixed)
-                ax.set_ylim(z_lim_fixed)
-                ax.set_aspect('equal', adjustable='box')
-            
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
+            ax.set_aspect('equal', adjustable='box')
+        
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title("Hexbin showing mean size per region", fontsize=9, color='gray', pad=3)
             
@@ -1009,9 +1108,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(z_lim_fixed)
+        ax.set_ylim(z_lim_fixed)
+        ax.set_aspect('equal', adjustable='box')
         
         ax.set_title("Latent Space by Building Class\nNYC DOF Classification", 
                      fontsize=12, fontweight='bold', pad=8)
