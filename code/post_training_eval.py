@@ -800,28 +800,49 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 elapsed = time.time() - start
                 print(f"[Eval]   SHAP completed in {elapsed:.1f}s for {n_explain} samples")
                 
-                # shap_values is list of arrays, one per output (latent dim)
+                # Debug SHAP output
+                print(f"[Eval]   SHAP output type: {type(shap_values)}")
+                if isinstance(shap_values, list):
+                    print(f"[Eval]   SHAP output list len: {len(shap_values)}")
+                elif hasattr(shap_values, 'shape'):
+                    print(f"[Eval]   SHAP output shape: {shap_values.shape}")
+
+                # Handle both list (multi-output) and array (single/stacked) cases
+                z1_shap, z2_shap = None, None
+                
                 if isinstance(shap_values, list) and len(shap_values) >= 2:
-                    # Get mean absolute SHAP values per feature for each latent dim
-                    z1_shap_importance = np.abs(shap_values[0]).mean(axis=0)
-                    z2_shap_importance = np.abs(shap_values[1]).mean(axis=0)
-                    
-                    # Top 3 features for each dimension
-                    top3_z1 = np.argsort(z1_shap_importance)[-3:][::-1]
-                    top3_z2 = np.argsort(z2_shap_importance)[-3:][::-1]
-                    
+                    z1_shap = shap_values[0] # (N, n_features)
+                    z2_shap = shap_values[1] # (N, n_features)
+                elif isinstance(shap_values, np.ndarray):
+                    # If array, might be (N, n_features, n_outputs) or just (N, n_features) if 1D
+                    if shap_values.ndim == 3 and shap_values.shape[2] >= 2:
+                         z1_shap = shap_values[:, :, 0]
+                         z2_shap = shap_values[:, :, 1]
+                    elif shap_values.ndim == 2:
+                         print("[Eval]   SHAP returned 2D array (single output?). Using as z1.")
+                         z1_shap = shap_values
+                         # Cannot get z2 from single output
+
+                if z1_shap is not None:
+                    # Get mean absolute importance
+                    z1_imp = np.abs(z1_shap).mean(axis=0)
+                    top3_z1 = np.argsort(z1_imp)[-3:][::-1]
                     z1_feats = [available_feats[i] for i in top3_z1]
-                    z2_feats = [available_feats[i] for i in top3_z2]
-                    
-                    shap_z1_label = f"z1 ({', '.join(z1_feats)})"
-                    shap_z2_label = f"z2 ({', '.join(z2_feats)})"
-                    print(f"[Eval]   SHAP-based labels: z1='{shap_z1_label}', z2='{shap_z2_label}'")
-                    
-                    # Update labels if SHAP succeeded
+                    shap_z1_label = f"Latent Dimension 1 of {', '.join(z1_feats)}"
                     z1_label = shap_z1_label
+
+                if z2_shap is not None:
+                    z2_imp = np.abs(z2_shap).mean(axis=0)
+                    top3_z2 = np.argsort(z2_imp)[-3:][::-1]
+                    z2_feats = [available_feats[i] for i in top3_z2]
+                    shap_z2_label = f"Latent Dimension 2 of {', '.join(z2_feats)}"
                     z2_label = shap_z2_label
-    except ImportError:
-        print("[Eval]   SHAP not installed; using correlation-based labels")
+                
+                if z1_shap is not None or z2_shap is not None:
+                    print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
+                else:
+                    print("[Eval]   Could not extract SHAP values for first 2 dimensions.")
+
     except Exception as e:
         print(f"[Eval]   SHAP attribution failed: {e}")
     
