@@ -812,9 +812,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         add_density_contours(valid_z_price[:, 0], valid_z_price[:, 1], ax, 
                             levels=6, color='white', alpha=0.7)
         
+        # Shuffle points to prevent ordering bias (last-plotted points appear on top)
+        np.random.seed(42)  # Reproducible
+        shuffle_idx = np.random.permutation(len(valid_log_price))
+        z_shuffled = valid_z_price[shuffle_idx]
+        price_shuffled = valid_log_price[shuffle_idx]
+        
         # Scatter with continuous log-price coloring
-        sc = ax.scatter(valid_z_price[:, 0], valid_z_price[:, 1], 
-                        c=valid_log_price, s=8, alpha=0.5, cmap="viridis",
+        sc = ax.scatter(z_shuffled[:, 0], z_shuffled[:, 1], 
+                        c=price_shuffled, s=8, alpha=0.5, cmap="viridis",
                         edgecolors='none', zorder=2)
         
         cbar = plt.colorbar(sc, ax=ax)
@@ -856,8 +862,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar.set_ticks(unique_ticks)
         cbar.set_ticklabels(unique_labels)
         
-        ax.set_xlabel("Latent Dimension 1", fontsize=11)
-        ax.set_ylabel("Latent Dimension 2", fontsize=11)
+        ax.set_xlabel(z1_label, fontsize=11)
+        ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(z_lim_fixed)
@@ -889,8 +895,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             cbar.set_ticks([t for t, l in valid_ticks])
             cbar.set_ticklabels([l for t, l in valid_ticks])
         
-        ax.set_xlabel("Latent Dimension 1", fontsize=11)
-        ax.set_ylabel("Latent Dimension 2", fontsize=11)
+        ax.set_xlabel(z1_label, fontsize=11)
+        ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(z_lim_fixed)
@@ -916,8 +922,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar = plt.colorbar(hb, ax=ax)
         cbar.set_label("Count", fontsize=10)
         
-        ax.set_xlabel("Latent Dimension 1", fontsize=11)
-        ax.set_ylabel("Latent Dimension 2", fontsize=11)
+        ax.set_xlabel(z1_label, fontsize=11)
+        ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(z_lim_fixed)
@@ -966,8 +972,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel("Latent Dimension 1", fontsize=11)
-            ax.set_ylabel("Latent Dimension 2", fontsize=11)
+            ax.set_xlabel(z1_label, fontsize=11)
+            ax.set_ylabel(z2_label, fontsize=11)
             
             # Apply fixed axis limits
             ax.set_xlim(z_lim_fixed)
@@ -996,8 +1002,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel("Latent Dimension 1", fontsize=11)
-            ax.set_ylabel("Latent Dimension 2", fontsize=11)
+            ax.set_xlabel(z1_label, fontsize=11)
+            ax.set_ylabel(z2_label, fontsize=11)
             
             # Apply fixed axis limits
             ax.set_xlim(z_lim_fixed)
@@ -1113,8 +1119,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.scatter(bldg_z[mask, 0], bldg_z[mask, 1], s=8, alpha=0.5, 
                       color=cmap(color_idx), label=lbl, edgecolors='none')
         
-        ax.set_xlabel("Latent Dimension 1", fontsize=11)
-        ax.set_ylabel("Latent Dimension 2", fontsize=11)
+        ax.set_xlabel(z1_label, fontsize=11)
+        ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(z_lim_fixed)
