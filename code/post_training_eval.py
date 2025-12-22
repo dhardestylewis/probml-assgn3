@@ -1208,127 +1208,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     except Exception as e:
         print(f"[Eval]   Encoder weight analysis failed: {e}")
     
-    # --- SHAP Attribution (brief test) ---
-    # Use SHAP KernelExplainer to attribute latent dimensions to input features
-    print("\n[Eval] SHAP attribution for latent dimensions...")
-    # --- Encoder Weight Analysis (SHAP) ---
-    # "We computed SHAP attributions for the encoder latent means z_mu(x) to quantify which 
-    # standardized input features most strongly influence each latent coordinate."
-    # Important: Latent coordinates are not identifiable up to rotation. These are run-specific diagnostics.
-    
-    try:
-        import shap
-        # Use simple background from the STANDARDIZED input (X_all_np)
-        # This matches exactly what the encoder receives.
-        n_background = min(100, len(X_all_np))
-        n_explain = min(100, len(X_all_np))
-        
-        # Sample background from standardized data
-        rng_shap = np.random.default_rng(42)
-        bg_idx = rng_shap.choice(len(X_all_np), n_background, replace=False)
-        background = X_all_np[bg_idx]
-        
-        # Sample explain set
-        explain_idx = rng_shap.choice(len(X_all_np), n_explain, replace=False)
-        X_explain = X_all_np[explain_idx]
-        
-        # Define wrapper to get ONLY z1 and z2 (standardized input -> latent means)
-        def encoder_z1z2(x_batch):
-            # Check if x_batch is tensor or numpy
-            if isinstance(x_batch, np.ndarray):
-                x_batch = torch.from_numpy(x_batch).float().to(DEVICE)
-            
-            with torch.no_grad():
-                # Encode to get mu, logvar
-                mu, _ = vae_model.encode(x_batch)
-                # Return only first 2 dimensions
-                return mu[:, :2].cpu().numpy()
 
-        import time
-        start = time.time()
-        
-        # KernelSHAP on the z1,z2 projection
-        explainer = shap.KernelExplainer(encoder_z1z2, background)
-        shap_values = explainer.shap_values(X_explain)
-        
-        elapsed = time.time() - start
-        print(f"[Eval]   SHAP completed in {elapsed:.1f}s for {n_explain} samples")
-        
-        # Handling SHAP output (list of arrays for multi-output)
-        z1_shap, z2_shap = None, None
-        
-        if isinstance(shap_values, list) and len(shap_values) >= 2:
-            z1_shap = shap_values[0]
-            z2_shap = shap_values[1]
-        elif isinstance(shap_values, np.ndarray):
-            if shap_values.ndim == 3: # (N, features, outputs)
-                z1_shap = shap_values[:, :, 0]
-                z2_shap = shap_values[:, :, 1]
-            elif shap_values.ndim == 2:
-                print("[Eval]   SHAP returned 2D array. Using as z1.")
-                z1_shap = shap_values
-        
-        # Feature Renaming Map
-        FEATURE_RENAMES = {
-            'building_sales_sum': 'Bldg Sales Vol',
-            'unit_sales_mean_roll2': 'Recent Trend',
-            'unit_sales_mean_cum': 'Avg Cumul Sales',
-            'unique_units': 'Unit Count',
-            'log_gross_sqft': 'Log Size',
-            'gross_sqft': 'Size',
-            'year_built': 'Year Built',
-            'log_sale_price': 'Log Price',
-            'sale_price': 'Price'
-        }
-        
-        def format_shap_label(z_shap, z_idx):
-            if z_shap is None: return None
-            
-            z_imp = np.abs(z_shap).mean(axis=0)
-            total_imp = z_imp.sum() + 1e-9
-            
-            top3_idx = np.argsort(z_imp)[-3:][::-1]
-            
-            parts = []
-            for i in top3_idx:
-                # Use feature_names_x_out which matches column order of X_all_np
-                feat_raw = feature_names_x_out[i]
-                feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) 
-                pct = (z_imp[i] / total_imp) * 100
-                parts.append(f"{pct:.0f}% {feat_name}")
-            
-            return f"z{z_idx}\n({', '.join(parts)})"
-
-        if z1_shap is not None:
-            shap_z1_label = format_shap_label(z1_shap, 1)
-            if shap_z1_label: z1_label = shap_z1_label.replace("\n", " ")
-
-        if z2_shap is not None:
-            shap_z2_label = format_shap_label(z2_shap, 2)
-            if shap_z2_label: z2_label = shap_z2_label.replace("\n", " ")
-        
-        if z1_shap is not None or z2_shap is not None:
-            print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
-            
-            # Principled Redundancy Check: Latent Value Correlation
-            z1_vals = mu_z[:, 0]
-            z2_vals = mu_z[:, 1]
-            latent_corr = np.corrcoef(z1_vals, z2_vals)[0, 1]
-            
-            print(f"[Eval]   Latent Coord Correlation (z1 vs z2): {latent_corr:.3f}")
-            if abs(latent_corr) > 0.8:
-                 print("[Eval]   WARNING: High correlation between latent coordinates. "
-                       "Attributions may split across redundant axes.")
-        else:
-            print("[Eval]   Could not extract SHAP values.")
-
-    except Exception as e:
-        print(f"[Eval]   SHAP attribution failed: {e}")
-        import traceback
-        traceback.print_exc()
 
     # --- Latent Importance for Price Prediction (Permutation Test) ---
     print("\n[Eval] Calculating Latent Importance for Price Prediction (Z -> Y)...")
+    
+    # Default plot dimensions (if importance fails)
+    plot_dim1 = 0
+    plot_dim2 = 1
+    
     try:
         # Check for price head
         if not hasattr(vae_model, 'price_mean_head'):
@@ -1392,8 +1280,106 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 if len(importances) >= 3 and importances[2] / total_imp > 0.10:
                     print("[Eval]   NOTE: z3 has >10% importance. Consider visualizing it.")
                 
+                # Update plotting dimensions to top 2 important latents
+                top_indices = np.argsort(importances)[::-1] # Descending importance
+                plot_dim1 = top_indices[0]
+                plot_dim2 = top_indices[1]
+                print(f"[Eval]   Updated plotting axes to Top-2 contributors: z{plot_dim1+1} (x) and z{plot_dim2+1} (y)")
+                
     except Exception as e:
         print(f"[Eval]   Latent importance failed: {e}")
+
+    label_x = f"z{plot_dim1+1}"
+    label_y = f"z{plot_dim2+1}"
+    
+    # Calculate robust default axis limits (global)
+    # This ensures they are defined even if subsets are empty
+    x_lim_fixed = np.percentile(mu_z[:, plot_dim1], [0.5, 99.5])
+    y_lim_fixed = np.percentile(mu_z[:, plot_dim2], [0.5, 99.5])
+    
+    # --- SHAP Attribution (Running on Selected Dimensions) ---
+    print(f"\n[Eval] SHAP attribution for selected latent dimensions: {label_x}, {label_y}...")
+    try:
+        import shap
+        # Use simple background from the STANDARDIZED input (X_all_np)
+        n_background = min(100, len(X_all_np))
+        n_explain = min(100, len(X_all_np))
+        
+        rng_shap = np.random.default_rng(42)
+        bg_idx = rng_shap.choice(len(X_all_np), n_background, replace=False)
+        background = X_all_np[bg_idx]
+        
+        explain_idx = rng_shap.choice(len(X_all_np), n_explain, replace=False)
+        X_explain = X_all_np[explain_idx]
+        
+        # Define wrapper to get ONLY the selected dimensions
+        def encoder_subset(x_batch):
+            if isinstance(x_batch, np.ndarray):
+                x_batch = torch.from_numpy(x_batch).float().to(DEVICE)
+            with torch.no_grad():
+                mu, _ = vae_model.encode(x_batch)
+                # Select the dimensions we strictly care about
+                return mu[:, [plot_dim1, plot_dim2]].cpu().numpy()
+
+        import time
+        start = time.time()
+        
+        explainer = shap.KernelExplainer(encoder_subset, background)
+        shap_values = explainer.shap_values(X_explain)
+        
+        elapsed = time.time() - start
+        print(f"[Eval]   SHAP completed in {elapsed:.1f}s")
+        
+        shap_x, shap_y = None, None
+        
+        if isinstance(shap_values, list) and len(shap_values) >= 2:
+            shap_x = shap_values[0]
+            shap_y = shap_values[1]
+        elif isinstance(shap_values, np.ndarray):
+            if shap_values.ndim == 3: 
+                shap_x = shap_values[:, :, 0]
+                shap_y = shap_values[:, :, 1]
+            elif shap_values.ndim == 2:
+                shap_x = shap_values
+        
+        # Feature Renaming Map (same as before)
+        FEATURE_RENAMES = {
+            'building_sales_sum': 'Bldg Sales Vol',
+            'unit_sales_mean_roll2': 'Recent Trend',
+            'unit_sales_mean_cum': 'Avg Cumul Sales',
+            'unique_units': 'Unit Count',
+            'log_gross_sqft': 'Log Size',
+            'gross_sqft': 'Size',
+            'year_built': 'Year Built',
+            'log_sale_price': 'Log Price',
+            'sale_price': 'Price'
+        }
+        
+        def format_shap_label(z_shap, dim_idx):
+            if z_shap is None: return None
+            z_imp = np.abs(z_shap).mean(axis=0)
+            total_imp = z_imp.sum() + 1e-9
+            top3_idx = np.argsort(z_imp)[-3:][::-1]
+            parts = []
+            for i in top3_idx:
+                feat_raw = feature_names_x_out[i]
+                feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) 
+                pct = (z_imp[i] / total_imp) * 100
+                parts.append(f"{pct:.0f}% {feat_name}")
+            return f"z{dim_idx+1}\n({', '.join(parts)})"
+
+        if shap_x is not None:
+            lbl = format_shap_label(shap_x, plot_dim1)
+            if lbl: label_x = lbl.replace("\n", " ")
+
+        if shap_y is not None:
+            lbl = format_shap_label(shap_y, plot_dim2)
+            if lbl: label_y = lbl.replace("\n", " ")
+        
+        print(f"[Eval]   SHAP-based labels: '{label_x}', '{label_y}'")
+
+    except Exception as e:
+        print(f"[Eval]   SHAP attribution failed: {e}")
 
 
     
@@ -1428,13 +1414,13 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         valid_mask = decile_idx >= 0
         
         fig, ax = plt.subplots(figsize=(7, 6))
-        sc = ax.scatter(mu_z[valid_mask, 0], mu_z[valid_mask, 1],
+        sc = ax.scatter(mu_z[valid_mask, plot_dim1], mu_z[valid_mask, plot_dim2],
                         c=decile_idx[valid_mask], s=5, alpha=0.6, cmap="viridis")
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label("Sale-price decile (0=lowest, 9=highest)")
-        ax.set_xlabel("z1")
-        ax.set_ylabel("z2")
-        ax.set_title("Latent space (z1 vs z2) colored by sale-price deciles\n(Original Simple Version)",
+        ax.set_xlabel(f"z{plot_dim1+1}")
+        ax.set_ylabel(f"z{plot_dim2+1}")
+        ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by sale-price deciles\n(Original Simple Version)",
                      fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
@@ -1447,6 +1433,20 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     MIN_PRICE_LOG = np.log(100_000)  # ~11.51
     mask_valid_price = np.isfinite(log_price_all) & (log_price_all >= MIN_PRICE_LOG)
     
+    # Define Axis Limits based on selected dimensions (Robust 99% interval)
+    # This replaces any hardcoded limits
+    if mask_valid_price.sum() > 100:
+        z_vals_all = mu_z[mask_valid_price]
+        x_lim_fixed = np.percentile(z_vals_all[:, plot_dim1], [0.5, 99.5])
+        y_lim_fixed = np.percentile(z_vals_all[:, plot_dim2], [0.5, 99.5])
+        # Add slight buffer
+        x_pad = (x_lim_fixed[1] - x_lim_fixed[0]) * 0.1
+        y_pad = (y_lim_fixed[1] - y_lim_fixed[0]) * 0.1
+        x_lim_fixed = (x_lim_fixed[0]-x_pad, x_lim_fixed[1]+x_pad)
+        y_lim_fixed = (y_lim_fixed[0]-y_pad, y_lim_fixed[1]+y_pad)
+        
+        print(f"[Eval] Dynamic axis limits for z{plot_dim1+1}/z{plot_dim2+1}: X={x_lim_fixed}, Y={y_lim_fixed}")
+    
     print(f"[Eval] Price filter: {mask_valid_price.sum()} / {np.isfinite(log_price_all).sum()} " +
           f"properties with sale price >= $100K")
     
@@ -1458,7 +1458,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         fig, ax = plt.subplots(figsize=(7, 6))
         
         # Add density contours first (behind scatter)
-        add_density_contours(valid_z_price[:, 0], valid_z_price[:, 1], ax, 
+        add_density_contours(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], ax, 
                             levels=6, color='white', alpha=0.7)
         
         # Shuffle points to prevent ordering bias (last-plotted points appear on top)
@@ -1468,7 +1468,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         price_shuffled = valid_log_price[shuffle_idx]
         
         # Scatter with continuous log-price coloring
-        sc = ax.scatter(z_shuffled[:, 0], z_shuffled[:, 1], 
+        sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
                         c=price_shuffled, s=8, alpha=0.5, cmap="viridis",
                         edgecolors='none', zorder=2)
         
@@ -1511,8 +1511,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar.set_ticks(unique_ticks)
         cbar.set_ticklabels(unique_labels)
         
-        ax.set_xlabel(z1_label, fontsize=11)
-        ax.set_ylabel(z2_label, fontsize=11)
+        ax.set_xlabel(label_x, fontsize=11)
+        ax.set_ylabel(label_y, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
@@ -1533,7 +1533,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
         fig, ax = plt.subplots(figsize=(7, 6))
         
-        hb = ax.hexbin(valid_z_price[:, 0], valid_z_price[:, 1], 
+        hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
                        C=valid_log_price, reduce_C_function=np.mean,
                        gridsize=40, cmap='viridis', mincnt=1, linewidths=0.2)
         
@@ -1545,8 +1545,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             cbar.set_ticks([t for t, l in valid_ticks])
             cbar.set_ticklabels([l for t, l in valid_ticks])
         
-        ax.set_xlabel(z1_label, fontsize=11)
-        ax.set_ylabel(z2_label, fontsize=11)
+        ax.set_xlabel(label_x, fontsize=11)
+        ax.set_ylabel(label_y, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
@@ -1567,14 +1567,14 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     if mask_valid_price.sum() > 100:
         fig, ax = plt.subplots(figsize=(7, 6))
         
-        hb = ax.hexbin(valid_z_price[:, 0], valid_z_price[:, 1], 
+        hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
                        gridsize=40, cmap='Blues', mincnt=1, linewidths=0.2)
         
         cbar = plt.colorbar(hb, ax=ax)
         cbar.set_label("Count", fontsize=10)
         
-        ax.set_xlabel(z1_label, fontsize=11)
-        ax.set_ylabel(z2_label, fontsize=11)
+        ax.set_xlabel(label_x, fontsize=11)
+        ax.set_ylabel(label_y, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
@@ -1607,10 +1607,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             # --- VERSION 1: Scatter + Contour ---
             fig, ax = plt.subplots(figsize=(7, 6))
             
-            add_density_contours(valid_z_size[:, 0], valid_z_size[:, 1], ax,
+            add_density_contours(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], ax,
                                 levels=6, color='white', alpha=0.7)
             
-            sc = ax.scatter(valid_z_size[:, 0], valid_z_size[:, 1], c=log_size, s=8, alpha=0.5, 
+            sc = ax.scatter(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], c=log_size, s=8, alpha=0.5, 
                            cmap="magma", edgecolors='none', zorder=2)
             
             cbar = plt.colorbar(sc, ax=ax)
@@ -1624,8 +1624,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel(z1_label, fontsize=11)
-            ax.set_ylabel(z2_label, fontsize=11)
+            ax.set_xlabel(label_x, fontsize=11)
+            ax.set_ylabel(label_y, fontsize=11)
             
             # Apply fixed axis limits
             ax.set_xlim(x_lim_fixed)
@@ -1645,7 +1645,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             # --- VERSION 2: Hexbin by size ---
             fig, ax = plt.subplots(figsize=(7, 6))
             
-            hb = ax.hexbin(valid_z_size[:, 0], valid_z_size[:, 1], 
+            hb = ax.hexbin(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], 
                            C=log_size, reduce_C_function=np.mean,
                            gridsize=40, cmap='magma', mincnt=1, linewidths=0.2)
             
@@ -1655,8 +1655,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel(z1_label, fontsize=11)
-            ax.set_ylabel(z2_label, fontsize=11)
+            ax.set_xlabel(label_x, fontsize=11)
+            ax.set_ylabel(label_y, fontsize=11)
             
             # Apply fixed axis limits
             ax.set_xlim(x_lim_fixed)
@@ -1700,10 +1700,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             mask = codes_raw == code
             if not np.any(mask):
                 continue
-            ax.scatter(bldg_z[mask, 0], bldg_z[mask, 1], s=5, alpha=0.5, label=label)
-        ax.set_xlabel("z1")
-        ax.set_ylabel("z2")
-        ax.set_title("Latent space (z1 vs z2) colored by building class\n(Original Simple Version)",
+            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=5, alpha=0.5, label=label)
+        ax.set_xlabel(label_x)
+        ax.set_ylabel(label_y)
+        ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by building class\n(Original Simple Version)",
                      fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
         n_classes = len(uniques_raw)
@@ -1771,11 +1771,11 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             if not np.any(mask): 
                 continue
             lbl = class_labels.get(letter, letter)
-            ax.scatter(bldg_z[mask, 0], bldg_z[mask, 1], s=8, alpha=0.5, 
+            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, alpha=0.5, 
                       color=cmap(color_idx), label=lbl, edgecolors='none')
         
-        ax.set_xlabel(z1_label, fontsize=11)
-        ax.set_ylabel(z2_label, fontsize=11)
+        ax.set_xlabel(label_x, fontsize=11)
+        ax.set_ylabel(label_y, fontsize=11)
         
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
