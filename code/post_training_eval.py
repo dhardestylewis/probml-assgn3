@@ -636,10 +636,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
-    z_lim_fixed = (-1, 1)  # Tight limits to focus on core structure
+    z_lim_fixed = (-0.5, 1)  # Asymmetric: focus on core structure
     
     # Count how many points fall outside these limits
-    outside_mask = (np.abs(mu_z[:, 0]) > 1) | (np.abs(mu_z[:, 1]) > 1)
+    outside_mask = (mu_z[:, 0] < -0.5) | (mu_z[:, 0] > 1) | (mu_z[:, 1] < -0.5) | (mu_z[:, 1] > 1)
     n_outside = outside_mask.sum()
     print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
     
