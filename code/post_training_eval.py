@@ -823,23 +823,56 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                          z1_shap = shap_values
                          # Cannot get z2 from single output
 
+                # Feature Renaming Map
+                FEATURE_RENAMES = {
+                    'building_sales_sum': 'Bldg Sales Vol',
+                    'unit_sales_mean_roll2': 'Recent Trend',
+                    'unique_units': 'Unit Count',
+                    'log_gross_sqft': 'Log Size',
+                    'gross_sqft': 'Size',
+                    'year_built': 'Year Built',
+                    'log_sale_price': 'Log Price',
+                    'sale_price': 'Price'
+                }
+                
+                def format_shap_label(z_shap, z_idx):
+                    if z_shap is None: return None
+                    
+                    z_imp = np.abs(z_shap).mean(axis=0)
+                    total_imp = z_imp.sum() + 1e-9
+                    
+                    top3_idx = np.argsort(z_imp)[-3:][::-1]
+                    
+                    parts = []
+                    for i in top3_idx:
+                        feat_raw = available_feats[i]
+                        feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) # Fallback to raw if not in dict
+                        pct = (z_imp[i] / total_imp) * 100
+                        parts.append(f"{pct:.0f}% {feat_name}")
+                    
+                    return f"z{z_idx}\n({', '.join(parts)})"
+
                 if z1_shap is not None:
-                    # Get mean absolute importance
-                    z1_imp = np.abs(z1_shap).mean(axis=0)
-                    top3_z1 = np.argsort(z1_imp)[-3:][::-1]
-                    z1_feats = [available_feats[i] for i in top3_z1]
-                    shap_z1_label = f"Latent Dimension 1 of {', '.join(z1_feats)}"
-                    z1_label = shap_z1_label
+                    shap_z1_label = format_shap_label(z1_shap, 1)
+                    if shap_z1_label: z1_label = shap_z1_label.replace("\n", " ") # Single line for print
 
                 if z2_shap is not None:
-                    z2_imp = np.abs(z2_shap).mean(axis=0)
-                    top3_z2 = np.argsort(z2_imp)[-3:][::-1]
-                    z2_feats = [available_feats[i] for i in top3_z2]
-                    shap_z2_label = f"Latent Dimension 2 of {', '.join(z2_feats)}"
-                    z2_label = shap_z2_label
-                
+                    shap_z2_label = format_shap_label(z2_shap, 2)
+                    if shap_z2_label: z2_label = shap_z2_label.replace("\n", " ")
+
                 if z1_shap is not None or z2_shap is not None:
                     print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
+                    
+                    # Latent redundancy check
+                    if z1_shap is not None and z2_shap is not None:
+                        # Correlation of the latent values themselves
+                        # We don't have z values here, only shap values.
+                        # But we can check SHAP profile similarity
+                        shap_corr = np.corrcoef(z1_shap.ravel(), z2_shap.ravel())[0,1]
+                        print(f"[Eval]   SHAP Global Correlation (z1 vs z2): {shap_corr:.3f}")
+                        if shap_corr > 0.9:
+                             print("[Eval]   WARNING: Latent dimensions appear highly redundant based on SHAP profiles.")
+
                 else:
                     print("[Eval]   Could not extract SHAP values for first 2 dimensions.")
 
