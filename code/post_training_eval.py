@@ -635,13 +635,22 @@ except AttributeError:
 
 if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
-    # Compute per-dimension statistics to decide on axis handling
-    z1_std, z2_std = np.std(mu_z[:, 0]), np.std(mu_z[:, 1])
-    z1_range = np.ptp(mu_z[:, 0])  # peak-to-peak
-    z2_range = np.ptp(mu_z[:, 1])
+    # Compute per-dimension statistics
+    z_stds = np.std(mu_z, axis=0)
+    z_ranges = np.ptp(mu_z, axis=0)
     
-    print(f"[Eval] Latent dimension stats: z1_std={z1_std:.3f}, z2_std={z2_std:.3f}")
-    print(f"[Eval] Latent dimension ranges: z1_range={z1_range:.3f}, z2_range={z2_range:.3f}")
+    print(f"[Eval] Latent dimension stats (std):   {', '.join([f'z{i+1}={s:.3f}' for i, s in enumerate(z_stds)])}")
+    print(f"[Eval] Latent dimension ranges (ptp): {', '.join([f'z{i+1}={r:.3f}' for i, r in enumerate(z_ranges)])}")
+    
+    # Debug model structure for Latent Importance Analysis
+    if 'vae_model' in globals():
+        print("\n[Eval] Inspecting VAE Model for Z->Y importance check:")
+        # print(f"[Eval] Model type: {type(vae_model)}")
+        print(f"[Eval] Model attributes: {[a for a in dir(vae_model) if not a.startswith('__')]}")
+        # Check specific common names
+        for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
+            if hasattr(vae_model, attr):
+                print(f"[Eval]   Found relevant attribute: {attr}")
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
