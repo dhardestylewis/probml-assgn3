@@ -366,7 +366,7 @@ else:
             ax.plot(epochs, t_loss, alpha=0.2, color='#1f77b4', linewidth=0.8)
             ax.plot(epochs, v_loss, alpha=0.2, color='#ff7f0e', linestyle="--", linewidth=0.8)
 
-    # Compute and plot averages
+    # Compute and plot averages (or single values)
     if all_train_losses:
         train_matrix = np.full((len(all_train_losses), max_len), np.nan)
         val_matrix = np.full((len(all_val_losses), max_len), np.nan)
@@ -379,23 +379,30 @@ else:
         mean_val = np.nanmean(val_matrix, axis=0)
         ep = np.arange(1, max_len + 1)
         
-        ax.plot(ep, mean_train, color='#1f77b4', linewidth=2.5, label=f"Train (mean)")
-        ax.plot(ep, mean_val, color='#ff7f0e', linestyle="--", linewidth=2.5, label=f"Val (mean)")
+        # Legend labels conditional on number of folds
+        if n_folds > 1:
+            train_label, val_label = "Train (mean)", "Val (mean)"
+        else:
+            train_label, val_label = "Train", "Validation"
+        
+        ax.plot(ep, mean_train, color='#1f77b4', linewidth=2.5, label=train_label)
+        ax.plot(ep, mean_val, color='#ff7f0e', linestyle="--", linewidth=2.5, label=val_label)
 
     ax.set_xlabel("Epoch", fontsize=11)
     ax.set_ylabel("Total Loss", fontsize=11)
     ax.legend(loc='upper right', fontsize=9)
     
-    # Title - conditional on number of folds
-    fig.suptitle("SemiSupMIWAE Convergence", fontsize=14, fontweight='bold', y=0.98)
-    if n_folds > 1:
-        ax.set_title(f"{n_folds} folds, faint lines = individual folds", fontsize=9, color='gray', pad=3)
-    # No subtitle for single fold
+    # Title - centered on axes, not figure
+    ax.set_title("SemiSupMIWAE Convergence", fontsize=14, fontweight='bold', pad=10)
+    
+    # Footnote explaining loss function
+    ax.text(0.5, -0.12, "Total Loss = Reconstruction Loss + β·KL Divergence",
+            transform=ax.transAxes, fontsize=8, color='gray', ha='center')
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.tight_layout()
     plt.show()
 
 # ===========================================================================
@@ -671,17 +678,36 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label("Sale Price", fontsize=10)
         
-        # Log-scale tick labels (powers of 10)
+        # Log-scale tick labels - include min and max values
+        vmin, vmax = valid_log_price.min(), valid_log_price.max()
         log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
                      np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
-                     np.log(10_000_000)]
-        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M']
-        # Filter to range of data
-        vmin, vmax = valid_log_price.min(), valid_log_price.max()
+                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000)]
+        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M']
+        
+        # Filter to range and always include min/max
         valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if vmin <= t <= vmax]
-        if valid_ticks:
-            cbar.set_ticks([t for t, l in valid_ticks])
-            cbar.set_ticklabels([l for t, l in valid_ticks])
+        
+        # Add actual min/max if not covered by standard ticks
+        def format_price(val):
+            price = np.exp(val)
+            if price >= 1_000_000:
+                return f"${price/1_000_000:.1f}M"
+            else:
+                return f"${price/1_000:.0f}K"
+        
+        final_ticks = [vmin] + [t for t, l in valid_ticks] + [vmax]
+        final_labels = [format_price(vmin)] + [l for t, l in valid_ticks] + [format_price(vmax)]
+        # Remove duplicates
+        seen = set()
+        unique_ticks, unique_labels = [], []
+        for t, l in zip(final_ticks, final_labels):
+            if round(t, 2) not in seen:
+                seen.add(round(t, 2))
+                unique_ticks.append(t)
+                unique_labels.append(l)
+        cbar.set_ticks(unique_ticks)
+        cbar.set_ticklabels(unique_labels)
         
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
@@ -691,13 +717,14 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylim(z_lim)
             ax.set_aspect('equal', adjustable='box')
         
-        fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Scatter with density contours · Log-scale colorbar", fontsize=9, color='gray', pad=3)
+        # Title centered on axes
+        ax.set_title("Latent Space by Price\nScatter with density contours", 
+                     fontsize=12, fontweight='bold', pad=8)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout()
         plt.show()
         
         # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
