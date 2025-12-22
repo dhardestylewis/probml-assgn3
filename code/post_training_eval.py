@@ -426,7 +426,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             edgecolor='white', linewidth=0.3)
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
-    ax.set_xlim(-x_max, x_max)
+    ax.set_xlim(-10, 10)  # Fixed x-axis limits
+    ax.set_ylim(0, 2)  # Fixed y-axis limits
     ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
     fig.suptitle("Residual Distribution", fontsize=14, fontweight='bold', y=0.98)
     ax.set_title(r"$r = \log(y_{\mathrm{true}}) - \log(\hat{y})$", fontsize=9, color='gray', pad=3)
@@ -445,7 +446,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                 alpha=0.7, label='Normal (MLE fit)', zorder=1)
         ax.set_xlabel("Residual", fontsize=11)
         ax.set_ylabel("Density", fontsize=11)
-        ax.set_xlim(-x_max, x_max)
+        ax.set_xlim(-10, 10)  # Fixed x-axis limits
+        ax.set_ylim(0, 2)  # Fixed y-axis limits
         ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
         ax.legend(loc='upper right', fontsize=8, framealpha=0.9)
         fig.suptitle("Residuals vs Normal", fontsize=14, fontweight='bold', y=0.98)
@@ -494,8 +496,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
     
-    # Center x-axis on 0
-    ax.set_xlim(-x_max, x_max)
+    # Fixed axis limits for residual plots
+    ax.set_xlim(-10, 10)
+    ax.set_ylim(0, 2)
     ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)  # subtle zero line
     
     # Title + subtitle with formula
