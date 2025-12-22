@@ -639,12 +639,13 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
-    z_lim_fixed = (-0.2, 0.6)  # Focused on core structure
+    x_lim_fixed = (-0.1, 0.4)  # z1 axis
+    y_lim_fixed = (-0.2, 0.7)  # z2 axis
     
     # Count how many points fall outside these limits
-    outside_mask = (mu_z[:, 0] < -0.2) | (mu_z[:, 0] > 0.6) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.6)
+    outside_mask = (mu_z[:, 0] < -0.1) | (mu_z[:, 0] > 0.4) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.7)
     n_outside = outside_mask.sum()
-    print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
+    print(f"[Eval] Using fixed axis limits x={x_lim_fixed}, y={y_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
     
     # --- Latent Dimension Correlation Analysis ---
     # Analyze what each latent dimension correlates with to generate descriptive labels
@@ -936,9 +937,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
-        ax.set_xlim(z_lim_fixed)
-        ax.set_ylim(z_lim_fixed)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(x_lim_fixed)
+        ax.set_ylim(y_lim_fixed)
+        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
         # Title centered on axes
         ax.set_title("Latent Space by Price\nScatter with density contours", 
@@ -969,9 +970,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
-        ax.set_xlim(z_lim_fixed)
-        ax.set_ylim(z_lim_fixed)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(x_lim_fixed)
+        ax.set_ylim(y_lim_fixed)
+        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
         fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing mean price per region", fontsize=9, color='gray', pad=3)
@@ -996,9 +997,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
-        ax.set_xlim(z_lim_fixed)
-        ax.set_ylim(z_lim_fixed)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(x_lim_fixed)
+        ax.set_ylim(y_lim_fixed)
+        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
         fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing point concentration", fontsize=9, color='gray', pad=3)
@@ -1046,9 +1047,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylabel(z2_label, fontsize=11)
             
             # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+            ax.set_xlim(x_lim_fixed)
+            ax.set_ylim(y_lim_fixed)
+            # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title(f"Scatter with density contours · {size_col}", fontsize=9, color='gray', pad=3)
@@ -1076,9 +1077,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylabel(z2_label, fontsize=11)
             
             # Apply fixed axis limits
-            ax.set_xlim(z_lim_fixed)
-            ax.set_ylim(z_lim_fixed)
-            ax.set_aspect('equal', adjustable='box')
+            ax.set_xlim(x_lim_fixed)
+            ax.set_ylim(y_lim_fixed)
+            # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title("Hexbin showing mean size per region", fontsize=9, color='gray', pad=3)
@@ -1193,9 +1194,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylabel(z2_label, fontsize=11)
         
         # Apply fixed axis limits
-        ax.set_xlim(z_lim_fixed)
-        ax.set_ylim(z_lim_fixed)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(x_lim_fixed)
+        ax.set_ylim(y_lim_fixed)
+        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
         ax.set_title("Latent Space by Building Class\nNYC DOF Classification", 
                      fontsize=12, fontweight='bold', pad=8)
