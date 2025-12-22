@@ -639,10 +639,10 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
-    z_lim_fixed = (-0.2, 0.8)  # Focused on core structure
+    z_lim_fixed = (-0.2, 0.6)  # Focused on core structure
     
     # Count how many points fall outside these limits
-    outside_mask = (mu_z[:, 0] < -0.2) | (mu_z[:, 0] > 0.8) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.8)
+    outside_mask = (mu_z[:, 0] < -0.2) | (mu_z[:, 0] > 0.6) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.6)
     n_outside = outside_mask.sum()
     print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
     
@@ -761,10 +761,13 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             """Forward pass through encoder to get latent means."""
             with torch.no_grad():
                 X_tensor = torch.tensor(X_in, dtype=torch.float32, device=DEVICE)
-                z_mean = vae_model.encoder(X_tensor)
+                # Use encode() method which returns (mu, logvar) tuple
+                result = vae_model.encode(X_tensor)
                 # Handle tuple outputs (mean, logvar)
-                if isinstance(z_mean, tuple):
-                    z_mean = z_mean[0]
+                if isinstance(result, tuple):
+                    z_mean = result[0]
+                else:
+                    z_mean = result
                 return z_mean.cpu().numpy()
         
         # Need to reconstruct input features for SHAP
