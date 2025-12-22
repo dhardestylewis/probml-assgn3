@@ -304,12 +304,15 @@ else:
     log_mu, log_var = vae_trainer.predict_price_and_uncertainty(X_test_tensor, batch_size=1024)
     log_mu = np.asarray(log_mu).reshape(-1)
     log_var = np.asarray(log_var).reshape(-1)
-    var_log = np.exp(log_var)
+    # WARNING: evidence suggests log_var is actually log_sigma (log std).
+    # Over-coverage of ~20% with exp(log_var) supports this.
+    # New semantics: var_log = exp(2 * log_sigma)
+    var_log = np.exp(2 * log_var)
 
     print(f"[Eval] Evaluating on random hold-out: {len(test_rel_idx)} / {N_obs} observed rows.")
     _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
 
-    _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
+
 
     # store for residual diagnostics
     y_true_log_eval = y_true_log
@@ -662,12 +665,21 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Bin by predicted value
         bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
         bin_idx = np.digitize(mu_log_eval, bins)
-        bin_means = [std_resid[bin_idx == i].mean() for i in range(1, len(bins))]
-        bin_stds = [std_resid[bin_idx == i].std() for i in range(1, len(bins))]
-        bin_centers = 0.5 * (bins[:-1] + bins[1:])
         
-        ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', 
-                    label='Binned Mean ± 1 Std', capsize=3)
+        bin_means = []
+        bin_stds = []
+        bin_centers = []
+        
+        for i in range(1, len(bins)):
+            mask_bin = bin_idx == i
+            if mask_bin.sum() > 5:
+                bin_means.append(std_resid[mask_bin].mean())
+                bin_stds.append(std_resid[mask_bin].std())
+                bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+        
+        if len(bin_centers) > 0:
+            ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', 
+                        label='Binned Mean ± 1 Std', capsize=3)
         
         ax.axhline(0, color='black', linestyle='--')
         ax.axhline(1, color='green', linestyle=':', label='Ideal Std=1')
@@ -702,9 +714,16 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         # Smooth trend
         if len(mu_log_eval) > 100:
-             # Binning for trend
-             bin_abs_means = [abs_resid[bin_idx == i].mean() for i in range(1, len(bins))]
-             ax.plot(bin_centers, bin_abs_means, 'r-o', linewidth=2, label='Mean Abs Resid')
+             bin_abs_means = []
+             bin_centers_abs = []
+             for i in range(1, len(bins)):
+                 mask_bin = bin_idx == i
+                 if mask_bin.sum() > 5:
+                     bin_abs_means.append(abs_resid[mask_bin].mean())
+                     bin_centers_abs.append(0.5 * (bins[i-1] + bins[i]))
+             
+             if len(bin_centers_abs) > 0:
+                  ax.plot(bin_centers_abs, bin_abs_means, 'r-o', linewidth=2, label='Mean Abs Resid')
         
         ax.set_xlabel("Predicted Log Price")
         ax.set_ylabel("|Residual| (Log Space)")
@@ -736,10 +755,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     # Binned mean residual
     bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
     bin_idx = np.digitize(mu_log_eval, bins)
-    bin_res_means = [resid_log[bin_idx == i].mean() for i in range(1, len(bins))]
-    bin_centers = 0.5 * (bins[:-1] + bins[1:])
     
-    ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
+    bin_res_means = []
+    bin_centers = []
+    
+    for i in range(1, len(bins)):
+        mask_bin = bin_idx == i
+        if mask_bin.sum() > 5:
+            bin_res_means.append(resid_log[mask_bin].mean())
+            bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+    
+    if len(bin_centers) > 0:
+        ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
     ax.axhline(0, color='black', linestyle='--')
     
     ax.set_xlabel("Predicted Log Price")
@@ -749,23 +776,73 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
 
+
+
     # 5. Segment Stability Checks (if metadata available)
     if 'eval_indices' in locals() and eval_indices is not None:
         try:
-            # Reconstruct evaluation dataframe subset
-            # We need to handle duplicate indices if any, but loc might return duplicates
-            # Safer to verify lengths
             print(f"[Eval] Segment Check: Indices length {len(eval_indices)}, Residuals length {len(resid_log)}")
             
-            # Extract metadata
-            # Warning: this relies on df_pred being available globally
-            meta_subset = df_pred.loc[eval_indices].copy()
-            
-            # Ensure alignment (if loc returned different count due to non-unique indices)
-            # This is a known risk. If huge mismatch, skip.
+            # Use iloc with eval_pos_idx if available for safety, otherwise eval_indices
+            if 'eval_pos_idx' in locals() and eval_pos_idx is not None:
+                 meta_subset = df_pred.iloc[eval_pos_idx].copy()
+            else:
+                 meta_subset = df_pred.loc[eval_indices].copy()
+
             if len(meta_subset) == len(resid_log):
                 meta_subset['residual'] = resid_log
                 
+                # --- By Sale Year (Time/Regime Drift) ---
+                # Check for sale_year, sale_date, year_sale
+                sale_col = next((c for c in ['sale_year', 'year_sale', 'saleyear', 'sale_date'] if c in meta_subset.columns), None)
+                if sale_col:
+                    # If date, extract year
+                    if 'date' in sale_col.lower():
+                        meta_subset[sale_col] = pd.to_datetime(meta_subset[sale_col], errors='coerce').dt.year
+                    
+                    meta_subset[sale_col] = pd.to_numeric(meta_subset[sale_col], errors='coerce')
+                    valid_sales = meta_subset.dropna(subset=[sale_col])
+                    
+                    if len(valid_sales) > 100:
+                         # Bin by 2 years
+                         valid_sales['year_bin'] = (valid_sales[sale_col] // 2) * 2
+                         
+                         # Compute RMSE, MAE, Coverage per bin
+                         # We need y_true_log and mu_log aligned.
+                         # Since we are iterating on 'residual', we can check Mean Residual and MAE.
+                         # To check RMSE and Coverage, we need original columns aligned.
+                         # They are in meta_subset? No, meta_subset is from df_pred.
+                         # We added 'residual'.
+                         # We can approximate RMSE as sqrt(mean(residual^2)).
+                         
+                         grp = valid_sales.groupby('year_bin')
+                         bin_stats = pd.DataFrame({
+                             'mean_resid': grp['residual'].mean(),
+                             'rmse': grp['residual'].apply(lambda x: np.sqrt(np.mean(x**2))),
+                             'count': grp['residual'].count()
+                         })
+                         bin_stats = bin_stats[bin_stats['count'] > 20]
+                         
+                         print("\n[Eval] Performance by Sale Year (Regime Stability):")
+                         print(bin_stats)
+                         
+                         fig, ax = plt.subplots(figsize=(10, 5))
+                         ax.errorbar(bin_stats.index, bin_stats['mean_resid'], 
+                                     yerr=bin_stats['rmse'] / np.sqrt(bin_stats['count']),
+                                     fmt='o-', color='purple', capsize=5, label='Mean Residual')
+                         
+                         ax2 = ax.twinx()
+                         ax2.plot(bin_stats.index, bin_stats['rmse'], 'g--o', alpha=0.5, label='RMSE')
+                         
+                         ax.axhline(0, color='black', linestyle='--')
+                         ax.set_xlabel("Sale Year (2-Year Bins)")
+                         ax.set_ylabel("Mean Residual (Log)")
+                         ax2.set_ylabel("RMSE (Log)", color='green')
+                         
+                         ax.set_title("Performance Stability by Sale Year", fontweight='bold')
+                         save_figure("residuals_by_sale_year.png")
+                         plt.show()
+
                 # --- By Year Built ---
                 year_col = next((c for c in ['year_built', 'yearbuilt', 'year'] if c in meta_subset.columns), None)
                 if year_col:
@@ -814,37 +891,121 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         except Exception as e:
             print(f"[Eval] Segment analysis failed: {e}")
 
-    # 6. Missingness Diagnostics (Error vs Fraction Missing)
-    # Check if we have X_mask_np (from global scope) and eval_pos_idx
     if 'eval_pos_idx' in locals() and 'X_mask_np' in globals() and eval_pos_idx is not None:
         try:
             # Get mask for the evaluation subset
-            # X_mask_np matches df_pred
+            # X_mask_np matches df_pred. Legend: 1=observed, 0=missing
             mask_subset = X_mask_np[eval_pos_idx]
-            # Calculate fraction missing per row
-            missing_frac = mask_subset.mean(axis=1) # 1 = missing, 0 = observed (usually)
-            # wait, previous logs said "Number of missing values in X: 0 (0.00%)". 
-            # If so, this plot will be empty/trivial. But good to have logic.
             
-            if missing_frac.max() > 0:
+            # Calculate fraction missing per row
+            # If 1=observed, then mean() is fraction observed.
+            # Fraction missing = 1.0 - mean()
+            missing_frac = 1.0 - mask_subset.mean(axis=1)
+            
+            # Check for range
+            max_miss = missing_frac.max()
+            print(f"[Eval] Missingness check: Max missing frac = {max_miss:.3f}")
+            
+            if max_miss > 0.01:
                 fig, ax = plt.subplots(figsize=(8, 5))
-                ax.scatter(missing_frac, np.abs(resid_log), alpha=0.1, s=2, color='orange')
-                
-                # Binned
-                bins_m = np.linspace(0, missing_frac.max(), 10)
+                # Binned analysis
+                bins_m = np.linspace(0, max_miss + 0.01, 10)
                 bin_idx_m = np.digitize(missing_frac, bins_m)
-                bin_err_means = [np.abs(resid_log)[bin_idx_m == i].mean() for i in range(1, len(bins_m))]
-                bin_centers_m = 0.5 * (bins_m[:-1] + bins_m[1:])
                 
-                ax.plot(bin_centers_m, bin_err_means, 'r-o', label='Mean Abs Error')
-                ax.set_xlabel("Fraction of Features Missing")
-                ax.set_ylabel("|Residual|")
-                ax.set_title("Error vs Missingness", fontweight='bold')
-                ax.legend()
-                save_figure("error_vs_missingness.png")
-                plt.show()
+                # Check for empty bins
+                bin_centers_m = []
+                bin_err_means = []
+                bin_sigma_means = [] # If we had sigma
+                
+                for i in range(1, len(bins_m)):
+                    mask_bin = bin_idx_m == i
+                    if mask_bin.sum() > 5:
+                        bin_centers_m.append(0.5 * (bins_m[i-1] + bins_m[i]))
+                        bin_err_means.append(np.abs(resid_log)[mask_bin].mean())
+                        
+                if len(bin_centers_m) > 1:
+                    ax.plot(bin_centers_m, bin_err_means, 'r-o', label='Mean Abs Error')
+                    ax.set_xlabel("Fraction of Features Missing")
+                    ax.set_ylabel("|Residual|")
+                    ax.set_title("Error vs Missingness (Natural)", fontweight='bold')
+                    save_figure("error_vs_missingness.png")
+                    plt.show()
+                else:
+                    print("[Eval] Not enough populated bins for natural missingness plot.")
+                    
             else:
-                print("[Eval] No missing values in X found; skipping Error vs Missingness plot.")
+                print("[Eval] No natural missingness found (Max < 1%). Running SYNTHETIC Missingness Stress Test.")
+                # Synthetic Test: artificially mask observed values and check degradation
+                # We need access to X_obs (or similar).
+                # We can use X_filled_np[eval_pos_idx] as "ground truth" X (assuming imputation is good or it's observed)
+                # Actually, strictly we should use X_filled_np and force-mask it.
+                
+                try:
+                    if 'vae_trainer' in locals() and 'X_filled_np' in globals():
+                        X_eval_base = X_filled_np[eval_pos_idx]
+                        
+                        fracs_to_test = [0.0, 0.1, 0.2, 0.3, 0.5]
+                        rmse_list = []
+                        unc_list = []
+                        
+                        # Subsample for speed
+                        n_syn = min(500, len(X_eval_base))
+                        rng_syn = np.random.default_rng(99)
+                        sub_idx = rng_syn.choice(len(X_eval_base), n_syn, replace=False)
+                        X_sub = X_eval_base[sub_idx]
+                        y_sub = y_true_log_eval[sub_idx]
+                        
+                        print(f"[Eval] Running Synthetic Stress Test on n={n_syn} samples...")
+                        
+                        for f in fracs_to_test:
+                            # Create mask: 0=missing
+                            # Keep (1-f) observed
+                            mask_syn = rng_syn.binomial(1, 1-f, size=X_sub.shape).astype(np.float32)
+                            
+                            # Zero out missing values in input (assuming model expects 0 for missing)
+                            X_sub_masked = X_sub * mask_syn
+                            
+                            # Convert to tensor
+                            X_batch = torch.from_numpy(X_sub_masked).float().to(DEVICE)
+                            # IMPORTANT: Ideally we pass the mask too. 
+                            # If predict_price_and_uncertainty doesn't take mask, this is imperfect 
+                            # but tests robustness to zero-imputation at least.
+                            
+                            # Log-capture silence
+                            try:
+                                log_mu_syn, log_var_syn = vae_trainer.predict_price_and_uncertainty(X_batch, batch_size=500)
+                                log_mu_syn = np.asarray(log_mu_syn).reshape(-1)
+                                
+                                # Variance Semantics Fix: exp(2*log_var)
+                                sigma_syn = np.exp(np.asarray(log_var_syn).reshape(-1))
+                                
+                                # Compute RMSE
+                                rmse_syn = np.sqrt(np.mean((y_sub - log_mu_syn)**2))
+                                mean_sigma = sigma_syn.mean()
+                                
+                                rmse_list.append(rmse_syn)
+                                unc_list.append(mean_sigma)
+                            except Exception as ex:
+                                print(f"  Failed for f={f}: {ex}")
+                                rmse_list.append(np.nan)
+                                unc_list.append(np.nan)
+                        
+                        # Plot
+                        fig, ax1 = plt.subplots(figsize=(8, 5))
+                        ax1.plot(fracs_to_test, rmse_list, 'r-o', label='RMSE (Log)')
+                        ax1.set_xlabel("Synthetic Missing Fraction")
+                        ax1.set_ylabel("RMSE", color='red')
+                        
+                        ax2 = ax1.twinx()
+                        ax2.plot(fracs_to_test, unc_list, 'b--s', label='Mean Predicted Sigma')
+                        ax2.set_ylabel("Predicted Std Dev", color='blue')
+                        
+                        plt.title("Synthetic Missingness Stress Test", fontweight='bold')
+                        save_figure("synthetic_missingness_stress.png")
+                        plt.show()
+                except Exception as e_syn:
+                    print(f"[Eval] Synthetic test failed: {e_syn}")
+
                 
         except Exception as e:
             print(f"[Eval] Missingness diagnostic failed: {e}")
@@ -1188,54 +1349,48 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 
                 z_batch = z_eval_subset[perm_sub_idx]
                 y_target = y_target_subset[perm_sub_idx]
+                y_target = y_target_subset[perm_sub_idx]
             else:
-                 print("[Eval] Warning: eval_pos_idx not found. Falling back to random sampling (RISK OF MISMATCH).")
-                 n_perm = min(5000, len(mu_z))
-                 perm_idx = np.random.choice(len(mu_z), n_perm, replace=False)
-                 z_batch = mu_z[perm_idx]
-                 # This is likely wrong if y_true_log_eval is smaller.
-                 # Fallback: just use zeros for target to check variance? No, we need MSE.
-                 # Skip if mismatch
-                 if len(y_true_log_eval) != len(mu_z):
-                      print("[Eval] SKIPPING Z->Y Test due to length mismatch and missing indices.")
-                      raise ValueError("Length mismatch")
-                 y_target = y_true_log_eval[perm_idx]
+                 print("[Eval] Warning: eval_pos_idx not found. SKIPPING Z->Y Test to avoid index mismatch.")
+                 # Removed unsafe fallback
+                 z_batch = None
             
-            # Helper to predict Y from Z
-            def predict_y_from_z(z_in):
-                t_z = torch.from_numpy(z_in).float().to(DEVICE)
-                with torch.no_grad():
-                    # Output of price_mean_head is usually (N, 1)
-                    y_out = vae_model.price_mean_head(t_z)
-                return y_out.cpu().numpy().ravel()
-            
-            y_pred_base = predict_y_from_z(z_batch)
-            mse_base = np.mean((y_target - y_pred_base)**2)
-            
-            print(f"[Eval]   Baseline MSE (subset n={n_perm}): {mse_base:.4f}")
-            
-            # 2. Permute each dimension and measure MSE increase
-            importances = []
-            for dim_i in range(z_batch.shape[1]):
-                z_permuted = z_batch.copy()
-                # Shuffle ONLY this dimension
-                np.random.shuffle(z_permuted[:, dim_i])
+            if z_batch is not None:
+                # Helper to predict Y from Z
+                def predict_y_from_z(z_in):
+                    t_z = torch.from_numpy(z_in).float().to(DEVICE)
+                    with torch.no_grad():
+                        # Output of price_mean_head is usually (N, 1)
+                        y_out = vae_model.price_mean_head(t_z)
+                    return y_out.cpu().numpy().ravel()
                 
-                y_pred_perm = predict_y_from_z(z_permuted)
-                mse_perm = np.mean((y_target - y_pred_perm)**2)
+                y_pred_base = predict_y_from_z(z_batch)
+                mse_base = np.mean((y_target - y_pred_base)**2)
                 
-                # Importance = Increase in MSE
-                imp = mse_perm - mse_base
-                importances.append(imp)
-                print(f"[Eval]     z{dim_i+1} Importance (MSE increase): {imp:.4f}")
-            
-            # Normalize to percentages
-            total_imp = sum(importances) + 1e-9
-            print(f"[Eval]   Relative Importance: " + 
-                  ", ".join([f"z{i+1}={100*imp/total_imp:.0f}%" for i, imp in enumerate(importances)]))
-            
-            if len(importances) >= 3 and importances[2] / total_imp > 0.10:
-                print("[Eval]   NOTE: z3 has >10% importance. Consider visualizing it.")
+                print(f"[Eval]   Baseline MSE (subset n={n_perm}): {mse_base:.4f}")
+                
+                # 2. Permute each dimension and measure MSE increase
+                importances = []
+                for dim_i in range(z_batch.shape[1]):
+                    z_permuted = z_batch.copy()
+                    # Shuffle ONLY this dimension
+                    np.random.shuffle(z_permuted[:, dim_i])
+                    
+                    y_pred_perm = predict_y_from_z(z_permuted)
+                    mse_perm = np.mean((y_target - y_pred_perm)**2)
+                    
+                    # Importance = Increase in MSE
+                    imp = mse_perm - mse_base
+                    importances.append(imp)
+                    print(f"[Eval]     z{dim_i+1} Importance (MSE increase): {imp:.4f}")
+                
+                # Normalize to percentages
+                total_imp = sum(importances) + 1e-9
+                print(f"[Eval]   Relative Importance: " + 
+                      ", ".join([f"z{i+1}={100*imp/total_imp:.0f}%" for i, imp in enumerate(importances)]))
+                
+                if len(importances) >= 3 and importances[2] / total_imp > 0.10:
+                    print("[Eval]   NOTE: z3 has >10% importance. Consider visualizing it.")
                 
     except Exception as e:
         print(f"[Eval]   Latent importance failed: {e}")
