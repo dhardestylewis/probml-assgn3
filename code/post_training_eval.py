@@ -779,7 +779,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         # Need to reconstruct input features for SHAP
         # Use a small background sample for speed
         n_background = min(100, len(mu_z))
-        n_explain = min(50, len(mu_z))
+        n_explain = min(100, len(mu_z)) # Increased to 100 for stability (approx 10s)
         
         # Get input data from df_pred using feature_names_x_out
         if feature_names_x_out and len(feature_names_x_out) > 0:
