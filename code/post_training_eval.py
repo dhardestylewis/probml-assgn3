@@ -468,8 +468,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Use already-fitted parameters from above (df_fit, loc_fit, scale_fit)
         
         # Student-t references: use MULTIPLICATIVE ratios around fitted df
-        # E.g., if fitted df=5, show df=2.5 (heavier, ν/2) and df=10 (lighter, ν*2)
-        df_lower = max(2.1, df_fit / 2)  # heavier tails (half the df)
+        # E.g., if fitted df=0.7, show df=0.35 (heavier, ν/2) and df=1.4 (lighter, ν*2)
+        # Student-t is valid for any df > 0
+        df_lower = max(0.1, df_fit / 2)  # heavier tails (half the df), min 0.1
         df_upper = df_fit * 2  # lighter tails (double the df)
         
         for nu_ref, style, lbl in [(df_lower, ':', f'ν={df_lower:.1f} (heavier)'), 
@@ -631,18 +632,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     print(f"[Eval] Latent dimension stats: z1_std={z1_std:.3f}, z2_std={z2_std:.3f}")
     print(f"[Eval] Latent dimension ranges: z1_range={z1_range:.3f}, z2_range={z2_range:.3f}")
     
-    # Decision: use equal axes only if variances are within 2x of each other
-    # Otherwise, let each axis have its own scale to honestly represent structure
-    variance_ratio = max(z1_std, z2_std) / min(z1_std, z2_std) if min(z1_std, z2_std) > 0 else 1
-    use_equal_axes = variance_ratio < 2.0
+    # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
+    # This prevents extreme outliers from compressing the visualization
+    # Most latent values should fall within ±3 std of mean = 0 for standardized VAE
+    z_lim_fixed = (-4, 4)  # Fixed limits: captures ~99.99% of standard normal
     
-    if use_equal_axes:
-        z_abs_max = max(np.abs(mu_z[:, 0]).max(), np.abs(mu_z[:, 1]).max()) * 1.05
-        z_lim = (-z_abs_max, z_abs_max)
-        print(f"[Eval] Using equal axes (variance ratio={variance_ratio:.2f} < 2.0)")
-    else:
-        z_lim = None  # Will use per-axis limits
-        print(f"[Eval] Using per-axis limits (variance ratio={variance_ratio:.2f} >= 2.0)")
+    # Count how many points fall outside these limits
+    outside_mask = (np.abs(mu_z[:, 0]) > 4) | (np.abs(mu_z[:, 1]) > 4)
+    n_outside = outside_mask.sum()
+    print(f"[Eval] Using fixed axis limits {z_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
     
     # Helper for KDE density contours
     def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
@@ -753,9 +751,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
-        if use_equal_axes:
-            ax.set_xlim(z_lim)
-            ax.set_ylim(z_lim)
+        # Apply fixed axis limits
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
             ax.set_aspect('equal', adjustable='box')
         
         # Title centered on axes
@@ -786,9 +784,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
-        if use_equal_axes:
-            ax.set_xlim(z_lim)
-            ax.set_ylim(z_lim)
+        # Apply fixed axis limits
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
             ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
@@ -813,9 +811,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
-        if use_equal_axes:
-            ax.set_xlim(z_lim)
-            ax.set_ylim(z_lim)
+        # Apply fixed axis limits
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
             ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
@@ -863,9 +861,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_xlabel("Latent Dimension 1", fontsize=11)
             ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
-            if use_equal_axes:
-                ax.set_xlim(z_lim)
-                ax.set_ylim(z_lim)
+            # Apply fixed axis limits
+                ax.set_xlim(z_lim_fixed)
+                ax.set_ylim(z_lim_fixed)
                 ax.set_aspect('equal', adjustable='box')
             
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
@@ -893,9 +891,9 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_xlabel("Latent Dimension 1", fontsize=11)
             ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
-            if use_equal_axes:
-                ax.set_xlim(z_lim)
-                ax.set_ylim(z_lim)
+            # Apply fixed axis limits
+                ax.set_xlim(z_lim_fixed)
+                ax.set_ylim(z_lim_fixed)
                 ax.set_aspect('equal', adjustable='box')
             
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
@@ -918,8 +916,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     if bldg_class_col:
         print(f"[Eval] Using '{bldg_class_col}' for Building Class Viz.")
         
+        # Filter to same price range as price plots (>= $100K)
+        bldg_price_mask = mask_valid_price  # Reuse the mask from price plots
+        print(f"[Eval] Building class plots using {bldg_price_mask.sum()} properties with price >= $100K")
+        
+        bldg_z = mu_z[bldg_price_mask]
+        bldg_series_full = df_pred[bldg_class_col].astype(str)
+        
         # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
-        bldg_series_raw = df_pred[bldg_class_col].astype(str)
+        bldg_series_raw = bldg_series_full[bldg_price_mask]
         codes_raw, uniques_raw = pd.factorize(bldg_series_raw)
         
         fig, ax = plt.subplots(figsize=(7, 6))
@@ -927,7 +932,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             mask = codes_raw == code
             if not np.any(mask):
                 continue
-            ax.scatter(mu_z[mask, 0], mu_z[mask, 1], s=5, alpha=0.5, label=label)
+            ax.scatter(bldg_z[mask, 0], bldg_z[mask, 1], s=5, alpha=0.5, label=label)
         ax.set_xlabel("z1")
         ax.set_ylabel("z2")
         ax.set_title("Latent space (z1 vs z2) colored by building class\n(Original Simple Version)",
@@ -942,7 +947,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         plt.show()
         
         # --- Enhanced version: Aggregate to first letter (major category) ---
-        bldg_series = df_pred[bldg_class_col].astype(str).str[0].str.upper()
+        # Use the filtered data from above (same properties as price plots)
+        bldg_series = bldg_series_full[bldg_price_mask].str[0].str.upper()
         
         # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
         # Order: Condos/Co-ops -> Multi-family Rental -> Houses -> Commercial -> Industrial -> Other
@@ -996,15 +1002,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             if not np.any(mask): 
                 continue
             lbl = class_labels.get(letter, letter)
-            ax.scatter(mu_z[mask, 0], mu_z[mask, 1], s=8, alpha=0.5, 
+            ax.scatter(bldg_z[mask, 0], bldg_z[mask, 1], s=8, alpha=0.5, 
                       color=cmap(color_idx), label=lbl, edgecolors='none')
         
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
-        if use_equal_axes:
-            ax.set_xlim(z_lim)
-            ax.set_ylim(z_lim)
+        # Apply fixed axis limits
+            ax.set_xlim(z_lim_fixed)
+            ax.set_ylim(z_lim_fixed)
             ax.set_aspect('equal', adjustable='box')
         
         ax.set_title("Latent Space by Building Class\nNYC DOF Classification", 
