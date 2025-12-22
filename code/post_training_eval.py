@@ -479,12 +479,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Lower ν (heavier tails) = sparser dashes, higher ν (lighter) = denser dashes
         for nu_ref, style in [(df_lower, (0, (5, 10))),   # sparse dash = heavier
                               (df_upper, (0, (3, 3)))]:   # dense dash = lighter
-            # Match variance: scale = std / sqrt(nu/(nu-2))
-            if nu_ref > 2:
-                scale_ref = std_fit / np.sqrt(nu_ref / (nu_ref - 2))
-            else:
-                scale_ref = std_fit * 0.5
-            pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=mu_fit, scale=scale_ref)
+            # Use same location and scale as the fit to compare shape (tail) only
+            # Matching variance is undefined for nu <= 2
+            pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=loc_fit, scale=scale_fit)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
                     alpha=0.7, label=f'ν={nu_ref:.1f}', zorder=1)
         
@@ -541,8 +538,15 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         sample_quantiles = np.sort(resid_log)
         
         # Fit line (should be close to y=x for good fit)
-        slope_t, intercept_t = np.polyfit(theoretical_quantiles, sample_quantiles, 1)
-        r_t = np.corrcoef(theoretical_quantiles, sample_quantiles)[0, 1]
+        # Only fit in the plausible range (-10, 10) to avoid outliers skewing slope
+        mask_fit = (theoretical_quantiles > -10) & (theoretical_quantiles < 10) & \
+                   (sample_quantiles > -10) & (sample_quantiles < 10)
+        
+        if mask_fit.sum() > 10:
+            slope_t, intercept_t = np.polyfit(theoretical_quantiles[mask_fit], sample_quantiles[mask_fit], 1)
+            r_t = np.corrcoef(theoretical_quantiles[mask_fit], sample_quantiles[mask_fit])[0, 1]
+        else:
+            slope_t, intercept_t, r_t = 0, 0, 0
         
         # Bootstrap confidence bands for Student-t
         n_boot = 200
@@ -559,7 +563,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         label=f'95% CI (Student-t ν={df_fit:.1f})', zorder=1)
         
         # Reference line: y = x (perfect fit)
-        ref_line = np.array([theoretical_quantiles.min(), theoretical_quantiles.max()])
+        # ref_line = np.array([theoretical_quantiles.min(), theoretical_quantiles.max()])
+        ref_line = np.array([-15, 15]) # Fixed ref line
         ax.plot(ref_line, ref_line, color='#e74c3c', linestyle='--', 
                 linewidth=2, alpha=0.8, label='Perfect fit (y=x)', zorder=2)
         
@@ -585,10 +590,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         # Equal aspect ratio
         ax.set_aspect('equal', adjustable='box')
-        all_vals = np.concatenate([theoretical_quantiles, sample_quantiles])
-        lim = max(abs(all_vals.min()), abs(all_vals.max())) * 1.05
-        ax.set_xlim(-lim, lim)
-        ax.set_ylim(-lim, lim)
+        
+        # Fixed limits to match histogram
+        ax.set_xlim(-15, 15)
+        ax.set_ylim(-15, 15)
         
         ax.legend(loc='lower right', fontsize=8, framealpha=0.9)
         ax.spines['top'].set_visible(False)
