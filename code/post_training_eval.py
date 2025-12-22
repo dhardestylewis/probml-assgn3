@@ -257,6 +257,9 @@ if have_cv:
     # store for residual diagnostics
     y_true_log_eval = y_true_log
     mu_log_eval = mu_log
+    var_log_eval = var_log
+    # Store indices to fetch metadata (year, building class) for segment analysis
+    eval_indices = df_eval.index.values
 
     # optional metrics on "uncertainty OK" subset
     unc_ok_col = "prediction_uncertainty_ok"
@@ -304,9 +307,16 @@ else:
     print(f"[Eval] Evaluating on random hold-out: {len(test_rel_idx)} / {N_obs} observed rows.")
     _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
 
+    _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
+
     # store for residual diagnostics
     y_true_log_eval = y_true_log
     mu_log_eval = log_mu
+    var_log_eval = var_log
+    # Convert relative indices back to original dataframe indices
+    # obs_idx indexes into X_filled_np (which matches df_pred)
+    # test_rel_idx indexes into obs_idx
+    eval_indices = df_pred.index.values[obs_idx][test_rel_idx]
 
 # ===========================================================================
 # 5. Convergence diagnostics (train/val loss vs epoch)
@@ -618,6 +628,154 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         plt.show()
     else:
         print("[Eval] Skipping QQ-plot (scipy not available).")
+        
+    # --- Advanced Residual Diagnostics (Conditional Checks) ---
+    print("\n[Eval] Generating Advanced Residual Diagnostics (Conditional Checks)...")
+    
+    # Check if we captured variance and indices
+    if 'var_log_eval' in locals() and var_log_eval is not None:
+        sigma_log_eval = np.sqrt(var_log_eval)
+        std_resid = resid_log / sigma_log_eval
+        
+        # 1. Calibration Table
+        print("\n=== Calibration Metrics (Empirical Coverage) ===")
+        print("Interval  | Nominal | Empirical | Gap")
+        print("----------|---------|-----------|-----")
+        for alpha in [0.50, 0.80, 0.95]:
+            # Central interval z-score
+            z_score = stats.norm.ppf(0.5 + alpha/2)
+            lower = mu_log_eval - z_score * sigma_log_eval
+            upper = mu_log_eval + z_score * sigma_log_eval
+            covered = (y_true_log_eval >= lower) & (y_true_log_eval <= upper)
+            empirical = covered.mean()
+            print(f"{int(alpha*100)}% CI    | {alpha:.3f}   | {empirical:.3f}     | {empirical-alpha:+.3f}")
+            
+        # 2. Standardized Residuals (Homoskedasticity check)
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='gray')
+        
+        # Bin mean/std
+        # Bin by predicted value
+        bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
+        bin_idx = np.digitize(mu_log_eval, bins)
+        bin_means = [std_resid[bin_idx == i].mean() for i in range(1, len(bins))]
+        bin_stds = [std_resid[bin_idx == i].std() for i in range(1, len(bins))]
+        bin_centers = 0.5 * (bins[:-1] + bins[1:])
+        
+        ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', 
+                    label='Binned Mean ± 1 Std', capsize=3)
+        
+        ax.axhline(0, color='black', linestyle='--')
+        ax.axhline(1, color='green', linestyle=':', label='Ideal Std=1')
+        ax.axhline(-1, color='green', linestyle=':')
+        
+        ax.set_xlabel("Predicted Log Price")
+        ax.set_ylabel("Standardized Residual $z = (y - \mu) / \sigma$")
+        ax.set_title("Standardized Residuals vs Prediction (Homoskedasticity Check)", fontweight='bold')
+        ax.legend()
+        save_figure("residuals_standardized_vs_pred.png")
+        plt.show()
+        
+        # 3. PIT Histogram (Uniformity check)
+        # Assuming Gaussian likelihood (default)
+        pit_values = stats.norm.cdf(y_true_log_eval, loc=mu_log_eval, scale=sigma_log_eval)
+        
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.hist(pit_values, bins=20, density=True, color='purple', alpha=0.6, edgecolor='white')
+        ax.axhline(1.0, color='black', linestyle='--', label='Ideal Uniform')
+        ax.set_xlabel("PIT Value $u = F(y)$")
+        ax.set_ylabel("Density")
+        ax.set_title("PIT Histogram (Calibration Check)", fontweight='bold')
+        ax.set_xlim(0, 1)
+        ax.legend()
+        save_figure("residuals_pit_histogram.png")
+        plt.show()
+
+    # 4. Conditional Bias Check (Residual vs Pred)
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.scatter(mu_log_eval, resid_log, alpha=0.05, s=2, color='#34495e')
+    
+    # Binned mean residual
+    bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
+    bin_idx = np.digitize(mu_log_eval, bins)
+    bin_res_means = [resid_log[bin_idx == i].mean() for i in range(1, len(bins))]
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+    
+    ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
+    ax.axhline(0, color='black', linestyle='--')
+    
+    ax.set_xlabel("Predicted Log Price")
+    ax.set_ylabel("Residual (Log Space)")
+    ax.set_title("Conditional Bias: Residual vs Prediction", fontweight='bold')
+    ax.legend()
+    save_figure("residuals_vs_pred_bias.png")
+    plt.show()
+
+    # 5. Segment Stability Checks (if metadata available)
+    if 'eval_indices' in locals() and eval_indices is not None:
+        try:
+            # Reconstruct evaluation dataframe subset
+            # We need to handle duplicate indices if any, but loc might return duplicates
+            # Safer to verify lengths
+            print(f"[Eval] Segment Check: Indices length {len(eval_indices)}, Residuals length {len(resid_log)}")
+            
+            # Extract metadata
+            # Warning: this relies on df_pred being available globally
+            meta_subset = df_pred.loc[eval_indices].copy()
+            
+            # Ensure alignment (if loc returned different count due to non-unique indices)
+            # This is a known risk. If huge mismatch, skip.
+            if len(meta_subset) == len(resid_log):
+                meta_subset['residual'] = resid_log
+                
+                # --- By Year Built ---
+                year_col = next((c for c in ['year_built', 'yearbuilt', 'year'] if c in meta_subset.columns), None)
+                if year_col:
+                    meta_subset[year_col] = pd.to_numeric(meta_subset[year_col], errors='coerce')
+                    valid_years = meta_subset.dropna(subset=[year_col])
+                    valid_years = valid_years[(valid_years[year_col] > 1800) & (valid_years[year_col] <= 2025)]
+                    
+                    if len(valid_years) > 100:
+                        # Bin by decade
+                        valid_years['decade'] = (valid_years[year_col] // 10) * 10
+                        decade_stats = valid_years.groupby('decade')['residual'].agg(['mean', 'count', 'std'])
+                        decade_stats = decade_stats[decade_stats['count'] > 50] # Filter distinct decades
+                        
+                        fig, ax = plt.subplots(figsize=(10, 5))
+                        ax.errorbar(decade_stats.index, decade_stats['mean'], 
+                                    yerr=decade_stats['std'] / np.sqrt(decade_stats['count']),
+                                    fmt='o-', color='teal', capsize=5)
+                        ax.axhline(0, color='black', linestyle='--')
+                        ax.set_xlabel("Decade Built")
+                        ax.set_ylabel("Mean Residual ± SE")
+                        ax.set_title("Residual Stability by Year Built (Time Check)", fontweight='bold')
+                        save_figure("residuals_by_year.png")
+                        plt.show()
+                
+                # --- By Building Class ---
+                bldg_col = next((c for c in ["bldg_class", "building_class", "bldgclass"] if c in meta_subset.columns), None)
+                if bldg_col:
+                    # First letter only
+                    meta_subset['class_major'] = meta_subset[bldg_col].astype(str).str[0].str.upper()
+                    class_stats = meta_subset.groupby('class_major')['residual'].agg(['mean', 'count', 'std'])
+                    class_stats = class_stats[class_stats['count'] > 50].sort_index()
+                    
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    ax.bar(class_stats.index, class_stats['mean'], yerr=class_stats['std'] / np.sqrt(class_stats['count']),
+                           capsize=5, color='#e67e22', alpha=0.7)
+                    ax.axhline(0, color='black', linewidth=1)
+                    ax.set_xlabel("Building Class (Major)")
+                    ax.set_ylabel("Mean Residual ± SE")
+                    ax.set_title("Residual Stability by Building Class (Type Check)", fontweight='bold')
+                    save_figure("residuals_by_bldg_class.png")
+                    plt.show()
+                    
+            else:
+                print("[Eval] Warning: Metadata index alignment failed. Skipping segment plots.")
+
+        except Exception as e:
+            print(f"[Eval] Segment analysis failed: {e}")
+            
 else:
     print("\n[Eval] No stored residuals; skipping residual diagnostics.")
 
