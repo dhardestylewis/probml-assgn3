@@ -32,6 +32,10 @@ logger.setLevel(logging.INFO)
 if not logger.handlers:
     logger.addHandler(logging.StreamHandler())
 
+# Ensure plots render at actual size in Colab
+plt.rcParams['figure.dpi'] = 100
+plt.rcParams['savefig.dpi'] = 150
+
 # ----------------------------------------------------------
 # 1. Paths (aligned with your AlphaScan cell)
 # ----------------------------------------------------------
@@ -382,9 +386,12 @@ else:
     ax.set_ylabel("Total Loss", fontsize=11)
     ax.legend(loc='upper right', fontsize=9)
     
-    # Title + subtitle\n    fig.suptitle(\"SemiSupMIWAE Convergence\", fontsize=14, fontweight='bold', y=0.98)\n    ax.set_title(f\"{n_folds} folds, faint lines = individual folds\", fontsize=9, color='gray', pad=3)
+    # Title - conditional on number of folds
+    fig.suptitle("SemiSupMIWAE Convergence", fontsize=14, fontweight='bold', y=0.98)
+    if n_folds > 1:
+        ax.set_title(f"{n_folds} folds, faint lines = individual folds", fontsize=9, color='gray', pad=3)
+    # No subtitle for single fold
     
-    # No gridlines for loss curves (cleaner)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     
@@ -453,19 +460,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     if HAVE_SCIPY:
         # Use already-fitted parameters from above (df_fit, loc_fit, scale_fit)
         
-        # Reference curves (light, dashed, behind)
-        # Normal reference
-        pdf_norm = stats.norm.pdf(x_grid, loc=mu_fit, scale=std_fit)
-        ax.plot(x_grid, pdf_norm, color='gray', linestyle='--', linewidth=1.5, 
-                alpha=0.7, label='Normal', zorder=1)
+        # Student-t references: choose values that STRADDLE the fitted df
+        # E.g., if fitted df=5, show df=3 (heavier) and df=8 (lighter)
+        df_lower = max(2.5, df_fit - 2)  # heavier tails
+        df_upper = df_fit + 3  # lighter tails
         
-        # Student-t references: lighter tails (nu=10) and heavier tails (nu=3)
-        for nu_ref, style, lbl in [(3, ':', 'ν=3 (heavy)'), (10, '-.', 'ν=10 (light)')]:
+        for nu_ref, style, lbl in [(df_lower, ':', f'ν={df_lower:.0f} (heavier)'), 
+                                    (df_upper, '-.', f'ν={df_upper:.0f} (lighter)')]:
             # Match variance: scale = std / sqrt(nu/(nu-2))
             if nu_ref > 2:
                 scale_ref = std_fit / np.sqrt(nu_ref / (nu_ref - 2))
             else:
-                scale_ref = std_fit * 0.5  # approximate for nu <= 2
+                scale_ref = std_fit * 0.5
             pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=mu_fit, scale=scale_ref)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
                     alpha=0.6, label=f'Student-t {lbl}', zorder=1)
@@ -673,8 +679,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             cbar.set_ticks([t for t, l in valid_ticks])
             cbar.set_ticklabels([l for t, l in valid_ticks])
         
-        ax.set_xlabel("Latent Dim 1", fontsize=11)
-        ax.set_ylabel("Latent Dim 2", fontsize=11)
+        ax.set_xlabel("Latent Dimension 1", fontsize=11)
+        ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         if use_equal_axes:
             ax.set_xlim(z_lim)
@@ -705,8 +711,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             cbar.set_ticks([t for t, l in valid_ticks])
             cbar.set_ticklabels([l for t, l in valid_ticks])
         
-        ax.set_xlabel("Latent Dim 1", fontsize=11)
-        ax.set_ylabel("Latent Dim 2", fontsize=11)
+        ax.set_xlabel("Latent Dimension 1", fontsize=11)
+        ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         if use_equal_axes:
             ax.set_xlim(z_lim)
@@ -732,8 +738,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar = plt.colorbar(hb, ax=ax)
         cbar.set_label("Count", fontsize=10)
         
-        ax.set_xlabel("Latent Dim 1", fontsize=11)
-        ax.set_ylabel("Latent Dim 2", fontsize=11)
+        ax.set_xlabel("Latent Dimension 1", fontsize=11)
+        ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         if use_equal_axes:
             ax.set_xlim(z_lim)
@@ -782,8 +788,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel("Latent Dim 1", fontsize=11)
-            ax.set_ylabel("Latent Dim 2", fontsize=11)
+            ax.set_xlabel("Latent Dimension 1", fontsize=11)
+            ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
             if use_equal_axes:
                 ax.set_xlim(z_lim)
@@ -812,8 +818,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 cbar.set_ticks([t for t, l in valid_sqft])
                 cbar.set_ticklabels([l for t, l in valid_sqft])
             
-            ax.set_xlabel("Latent Dim 1", fontsize=11)
-            ax.set_ylabel("Latent Dim 2", fontsize=11)
+            ax.set_xlabel("Latent Dimension 1", fontsize=11)
+            ax.set_ylabel("Latent Dimension 2", fontsize=11)
             
             if use_equal_axes:
                 ax.set_xlim(z_lim)
@@ -896,8 +902,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.scatter(mu_z[mask, 0], mu_z[mask, 1], s=8, alpha=0.5, 
                       color=cmap(code), label=lbl, edgecolors='none')
         
-        ax.set_xlabel("Latent Dim 1", fontsize=11)
-        ax.set_ylabel("Latent Dim 2", fontsize=11)
+        ax.set_xlabel("Latent Dimension 1", fontsize=11)
+        ax.set_ylabel("Latent Dimension 2", fontsize=11)
         
         if use_equal_axes:
             ax.set_xlim(z_lim)
