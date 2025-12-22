@@ -477,8 +477,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         # Reference lines: same gray color, different dash patterns
         # Lower ν (heavier tails) = sparser dashes, higher ν (lighter) = denser dashes
-        for nu_ref, style, lbl in [(df_lower, (0, (5, 10)), f'ν={nu_ref:.1f} (heavier)'),  # sparse dash
-                                    (df_upper, (0, (3, 3)), f'ν={nu_ref:.1f} (lighter)')]:  # dense dash
+        for nu_ref, style in [(df_lower, (0, (5, 10))),   # sparse dash = heavier
+                              (df_upper, (0, (3, 3)))]:   # dense dash = lighter
             # Match variance: scale = std / sqrt(nu/(nu-2))
             if nu_ref > 2:
                 scale_ref = std_fit / np.sqrt(nu_ref / (nu_ref - 2))
@@ -486,7 +486,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                 scale_ref = std_fit * 0.5
             pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=mu_fit, scale=scale_ref)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
-                    alpha=0.7, label=f'Student-t {lbl}', zorder=1)
+                    alpha=0.7, label=f'ν={nu_ref:.1f}', zorder=1)
         
         # Best-fit Student-t: same gray color but SOLID line (not dashed)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
@@ -748,6 +748,73 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                         print(f"[Eval]   z{lat_idx+1} top input features: {[(f, f'{w:.3f}') for f, w in top_features]}")
     except Exception as e:
         print(f"[Eval]   Encoder weight analysis failed: {e}")
+    
+    # --- SHAP Attribution (brief test) ---
+    # Use SHAP KernelExplainer to attribute latent dimensions to input features
+    print("\n[Eval] SHAP attribution for latent dimensions...")
+    shap_z1_label, shap_z2_label = None, None
+    try:
+        import shap
+        
+        # Define encoder function: input features -> latent mean
+        def encoder_fn(X_in):
+            """Forward pass through encoder to get latent means."""
+            with torch.no_grad():
+                X_tensor = torch.tensor(X_in, dtype=torch.float32, device=DEVICE)
+                z_mean = vae_model.encoder(X_tensor)
+                # Handle tuple outputs (mean, logvar)
+                if isinstance(z_mean, tuple):
+                    z_mean = z_mean[0]
+                return z_mean.cpu().numpy()
+        
+        # Need to reconstruct input features for SHAP
+        # Use a small background sample for speed
+        n_background = min(100, len(mu_z))
+        n_explain = min(50, len(mu_z))
+        
+        # Get input data from df_pred using feature_names_x_out
+        if feature_names_x_out and len(feature_names_x_out) > 0:
+            # Check which features are available in df_pred
+            available_feats = [f for f in feature_names_x_out if f in df_pred.columns]
+            if len(available_feats) >= 3:
+                X_shap = df_pred[available_feats].values.astype(np.float32)
+                X_shap = np.nan_to_num(X_shap, nan=0)
+                
+                background = shap.sample(X_shap, n_background)
+                
+                import time
+                start = time.time()
+                
+                explainer = shap.KernelExplainer(encoder_fn, background)
+                shap_values = explainer.shap_values(X_shap[:n_explain])
+                
+                elapsed = time.time() - start
+                print(f"[Eval]   SHAP completed in {elapsed:.1f}s for {n_explain} samples")
+                
+                # shap_values is list of arrays, one per output (latent dim)
+                if isinstance(shap_values, list) and len(shap_values) >= 2:
+                    # Get mean absolute SHAP values per feature for each latent dim
+                    z1_shap_importance = np.abs(shap_values[0]).mean(axis=0)
+                    z2_shap_importance = np.abs(shap_values[1]).mean(axis=0)
+                    
+                    # Top 3 features for each dimension
+                    top3_z1 = np.argsort(z1_shap_importance)[-3:][::-1]
+                    top3_z2 = np.argsort(z2_shap_importance)[-3:][::-1]
+                    
+                    z1_feats = [available_feats[i] for i in top3_z1]
+                    z2_feats = [available_feats[i] for i in top3_z2]
+                    
+                    shap_z1_label = f"z1 ({', '.join(z1_feats)})"
+                    shap_z2_label = f"z2 ({', '.join(z2_feats)})"
+                    print(f"[Eval]   SHAP-based labels: z1='{shap_z1_label}', z2='{shap_z2_label}'")
+                    
+                    # Update labels if SHAP succeeded
+                    z1_label = shap_z1_label
+                    z2_label = shap_z2_label
+    except ImportError:
+        print("[Eval]   SHAP not installed; using correlation-based labels")
+    except Exception as e:
+        print(f"[Eval]   SHAP attribution failed: {e}")
     
     
     # Helper for KDE density contours
