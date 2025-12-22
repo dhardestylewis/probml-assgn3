@@ -258,8 +258,10 @@ if have_cv:
     y_true_log_eval = y_true_log
     mu_log_eval = mu_log
     var_log_eval = var_log
-    # Store indices to fetch metadata (year, building class) for segment analysis
+    # Indices for metadata fetch
     eval_indices = df_eval.index.values
+    # Integer positions in df_pred (for X_mask / mu_z alignment)
+    eval_pos_idx = np.where(mask_pred)[0]
 
     # optional metrics on "uncertainty OK" subset
     unc_ok_col = "prediction_uncertainty_ok"
@@ -313,10 +315,12 @@ else:
     y_true_log_eval = y_true_log
     mu_log_eval = log_mu
     var_log_eval = var_log
-    # Convert relative indices back to original dataframe indices
-    # obs_idx indexes into X_filled_np (which matches df_pred)
-    # test_rel_idx indexes into obs_idx
+    # Indices for metadata fetch
     eval_indices = df_pred.index.values[obs_idx][test_rel_idx]
+    # Integer positions in df_pred (for X_mask / mu_z alignment)
+    # obs_idx are the positions in df_pred of observed rows
+    # test_rel_idx are the positions in obs_idx
+    eval_pos_idx = obs_idx[test_rel_idx]
 
 # ===========================================================================
 # 5. Convergence diagnostics (train/val loss vs epoch)
@@ -650,7 +654,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             empirical = covered.mean()
             print(f"{int(alpha*100)}% CI    | {alpha:.3f}   | {empirical:.3f}     | {empirical-alpha:+.3f}")
             
-        # 2. Standardized Residuals (Homoskedasticity check)
+        # 2a. Standardized Residuals vs Prediction (Heteroskedasticity check)
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='gray')
         
@@ -670,11 +674,45 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.axhline(-1, color='green', linestyle=':')
         
         ax.set_xlabel("Predicted Log Price")
-        ax.set_ylabel("Standardized Residual $z = (y - \mu) / \sigma$")
-        ax.set_title("Standardized Residuals vs Prediction (Homoskedasticity Check)", fontweight='bold')
+        ax.set_ylabel("Standardized Residual $z$")
+        ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
         ax.legend()
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
+
+        # 2b. Standardized QQ Plot (Normality of conditional noise)
+        if HAVE_SCIPY:
+            fig, ax = plt.subplots(figsize=(6, 6))
+            stats.probplot(std_resid, dist="norm", plot=ax)
+            ax.set_title("QQ-Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold')
+            ax.set_ylabel("Ordered Standardized Residuals")
+            # Add identity line
+            ax.plot([-4, 4], [-4, 4], color='gray', linestyle='--', alpha=0.5)
+            ax.set_ylim(-5, 5)
+            ax.set_xlim(-5, 5)
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            save_figure("residuals_standardized_qq.png")
+            plt.show()
+
+        # 2c. Absolute Residuals vs Prediction (Another Heteroskedasticity view)
+        fig, ax = plt.subplots(figsize=(8, 5))
+        abs_resid = np.abs(resid_log)
+        ax.scatter(mu_log_eval, abs_resid, alpha=0.1, s=2, color='gray')
+        
+        # Smooth trend
+        if len(mu_log_eval) > 100:
+             # Binning for trend
+             bin_abs_means = [abs_resid[bin_idx == i].mean() for i in range(1, len(bins))]
+             ax.plot(bin_centers, bin_abs_means, 'r-o', linewidth=2, label='Mean Abs Resid')
+        
+        ax.set_xlabel("Predicted Log Price")
+        ax.set_ylabel("|Residual| (Log Space)")
+        ax.set_title("Absolute Residuals vs Prediction", fontweight='bold')
+        ax.legend()
+        save_figure("residuals_abs_vs_pred.png")
+        plt.show()
+
         
         # 3. PIT Histogram (Uniformity check)
         # Assuming Gaussian likelihood (default)
@@ -775,6 +813,78 @@ if y_true_log_eval is not None and mu_log_eval is not None:
 
         except Exception as e:
             print(f"[Eval] Segment analysis failed: {e}")
+
+    # 6. Missingness Diagnostics (Error vs Fraction Missing)
+    # Check if we have X_mask_np (from global scope) and eval_pos_idx
+    if 'eval_pos_idx' in locals() and 'X_mask_np' in globals() and eval_pos_idx is not None:
+        try:
+            # Get mask for the evaluation subset
+            # X_mask_np matches df_pred
+            mask_subset = X_mask_np[eval_pos_idx]
+            # Calculate fraction missing per row
+            missing_frac = mask_subset.mean(axis=1) # 1 = missing, 0 = observed (usually)
+            # wait, previous logs said "Number of missing values in X: 0 (0.00%)". 
+            # If so, this plot will be empty/trivial. But good to have logic.
+            
+            if missing_frac.max() > 0:
+                fig, ax = plt.subplots(figsize=(8, 5))
+                ax.scatter(missing_frac, np.abs(resid_log), alpha=0.1, s=2, color='orange')
+                
+                # Binned
+                bins_m = np.linspace(0, missing_frac.max(), 10)
+                bin_idx_m = np.digitize(missing_frac, bins_m)
+                bin_err_means = [np.abs(resid_log)[bin_idx_m == i].mean() for i in range(1, len(bins_m))]
+                bin_centers_m = 0.5 * (bins_m[:-1] + bins_m[1:])
+                
+                ax.plot(bin_centers_m, bin_err_means, 'r-o', label='Mean Abs Error')
+                ax.set_xlabel("Fraction of Features Missing")
+                ax.set_ylabel("|Residual|")
+                ax.set_title("Error vs Missingness", fontweight='bold')
+                ax.legend()
+                save_figure("error_vs_missingness.png")
+                plt.show()
+            else:
+                print("[Eval] No missing values in X found; skipping Error vs Missingness plot.")
+                
+        except Exception as e:
+            print(f"[Eval] Missingness diagnostic failed: {e}")
+
+    # 7. Spatial Diagnostics (Map of Residuals)
+    # Check for coordinates in df_pred
+    coord_cols = None
+    if 'x_coord' in df_pred.columns and 'y_coord' in df_pred.columns:
+        coord_cols = ('x_coord', 'y_coord')
+    elif 'longitude' in df_pred.columns and 'latitude' in df_pred.columns:
+        coord_cols = ('longitude', 'latitude')
+    
+    if 'eval_indices' in locals() and eval_indices is not None and coord_cols:
+        try:
+             meta_subset = df_pred.loc[eval_indices].copy()
+             x_col, y_col = coord_cols
+             
+             # Filter to finite coordinates
+             valid_geo = meta_subset.dropna(subset=[x_col, y_col])
+             # Align residuals
+             if len(valid_geo) > 100:
+                  # We need to valid_geo vs resid_log alignment.
+                  # Since valid_geo is a subset of meta_subset, we can join or index
+                  # Easiest: add residual to meta_subset first
+                  meta_subset['residual'] = resid_log
+                  valid_geo = meta_subset.dropna(subset=[x_col, y_col])
+                  
+                  fig, ax = plt.subplots(figsize=(8, 8))
+                  # Plot binned residuals (hexbin) to show spatial pattern
+                  hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
+                                 gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
+                  plt.colorbar(hb, ax=ax, label="Mean Residual (Log Space)")
+                  ax.set_title(f"Spatial Residual Map ({x_col}, {y_col})", fontweight='bold')
+                  save_figure("residuals_spatial_map.png")
+                  plt.show()
+             else:
+                  print("[Eval] Not enough valid coordinates for spatial map.")
+        except Exception as e:
+            print(f"[Eval] Spatial diagnostic failed: {e}")
+
             
 else:
     print("\n[Eval] No stored residuals; skipping residual diagnostics.")
@@ -1064,12 +1174,32 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             print("[Eval]   No 'price_mean_head' found on model. Skipping Z->Y importance.")
         else:
             # 1. Baseline Performance (MSE/R2 using all Z)
-            # Use full mu_z (random subset for speed if huge)
-            n_perm = min(5000, len(mu_z))
-            perm_idx = np.random.choice(len(mu_z), n_perm, replace=False)
+            # Use eval subset only to match y_true_log_eval size
+            # We now have eval_pos_idx which are integer positions in mu_z (if mu_z covers full dataset)
             
-            z_batch = mu_z[perm_idx]
-            y_target = y_true_log_eval[perm_idx] if y_true_log_eval is not None else np.zeros(n_perm)
+            if 'eval_pos_idx' in locals() and eval_pos_idx is not None:
+                # Use only the evaluation set for this test
+                z_eval_subset = mu_z[eval_pos_idx]
+                y_target_subset = y_true_log_eval # Already aligned with eval_pos_idx
+                
+                # Subsample if too large
+                n_perm = min(5000, len(z_eval_subset))
+                perm_sub_idx = np.random.choice(len(z_eval_subset), n_perm, replace=False)
+                
+                z_batch = z_eval_subset[perm_sub_idx]
+                y_target = y_target_subset[perm_sub_idx]
+            else:
+                 print("[Eval] Warning: eval_pos_idx not found. Falling back to random sampling (RISK OF MISMATCH).")
+                 n_perm = min(5000, len(mu_z))
+                 perm_idx = np.random.choice(len(mu_z), n_perm, replace=False)
+                 z_batch = mu_z[perm_idx]
+                 # This is likely wrong if y_true_log_eval is smaller.
+                 # Fallback: just use zeros for target to check variance? No, we need MSE.
+                 # Skip if mismatch
+                 if len(y_true_log_eval) != len(mu_z):
+                      print("[Eval] SKIPPING Z->Y Test due to length mismatch and missing indices.")
+                      raise ValueError("Length mismatch")
+                 y_target = y_true_log_eval[perm_idx]
             
             # Helper to predict Y from Z
             def predict_y_from_z(z_in):
@@ -1510,7 +1640,8 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        plt.tight_layout(rect=[0, 0, 0.85, 0.95] if len(uniques) > 8 else [0, 0, 1, 0.95])
+        # Use n_present for layout decision
+        plt.tight_layout(rect=[0, 0, 0.85, 0.95] if n_present > 8 else [0, 0, 1, 0.95])
         save_figure("latent_space_bldg.png")
         plt.show()
 
