@@ -382,9 +382,7 @@ else:
     ax.set_ylabel("Total Loss", fontsize=11)
     ax.legend(loc='upper right', fontsize=9)
     
-    # Title + subtitle
-    fig.suptitle("SemiSupMIWAE Convergence", fontsize=13, fontweight='bold', y=0.98)
-    ax.set_title(f"{n_folds} folds, faint lines = individual folds", fontsize=9, color='gray', pad=3)
+    # Title + subtitle\n    fig.suptitle(\"SemiSupMIWAE Convergence\", fontsize=14, fontweight='bold', y=0.98)\n    ax.set_title(f\"{n_folds} folds, faint lines = individual folds\", fontsize=9, color='gray', pad=3)
     
     # No gridlines for loss curves (cleaner)
     ax.spines['top'].set_visible(False)
@@ -400,6 +398,50 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     print("\n[Eval] Generating residual diagnostics.")
 
     resid_log = y_true_log_eval - mu_log_eval
+    
+    # Fit parameters (used across all residual plots)
+    if HAVE_SCIPY:
+        mu_fit, std_fit = stats.norm.fit(resid_log)
+        df_fit, loc_fit, scale_fit = stats.t.fit(resid_log)
+        x_max = max(abs(resid_log.min()), abs(resid_log.max())) + 0.5
+        x_grid = np.linspace(-x_max, x_max, 500)
+    
+    # --- VERSION 1: Simple histogram only ---
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.hist(resid_log, bins=50, density=True, alpha=0.8, color='#2ecc71', 
+            edgecolor='white', linewidth=0.3)
+    ax.set_xlabel("Residual", fontsize=11)
+    ax.set_ylabel("Density", fontsize=11)
+    ax.set_xlim(-x_max, x_max)
+    ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
+    fig.suptitle("Residual Distribution", fontsize=14, fontweight='bold', y=0.98)
+    ax.set_title(r"$r = \log(y_{\mathrm{true}}) - \log(\hat{y})$", fontsize=9, color='gray', pad=3)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+    
+    # --- VERSION 2: Histogram + Normal reference only ---
+    if HAVE_SCIPY:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.hist(resid_log, bins=50, density=True, alpha=0.8, color='#2ecc71', 
+                edgecolor='white', linewidth=0.3, label='Observed', zorder=3)
+        pdf_norm = stats.norm.pdf(x_grid, loc=mu_fit, scale=std_fit)
+        ax.plot(x_grid, pdf_norm, color='gray', linestyle='--', linewidth=1.5, 
+                alpha=0.7, label='Normal (MLE fit)', zorder=1)
+        ax.set_xlabel("Residual", fontsize=11)
+        ax.set_ylabel("Density", fontsize=11)
+        ax.set_xlim(-x_max, x_max)
+        ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
+        ax.legend(loc='upper right', fontsize=8, framealpha=0.9)
+        fig.suptitle("Residuals vs Normal", fontsize=14, fontweight='bold', y=0.98)
+        ax.set_title("Log-transformed prices", fontsize=9, color='gray', pad=3)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+    
+    # --- VERSION 3: Full with Student-t overlays ---
     
     # --- 6a. Histogram with Student-t overlays ---
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -447,7 +489,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)  # subtle zero line
     
     # Title + subtitle with formula
-    fig.suptitle("Residual Distribution", fontsize=13, fontweight='bold', y=0.98)
+    fig.suptitle("Residuals vs Heavy-Tailed References", fontsize=14, fontweight='bold', y=0.98)
     ax.set_title(r"$r = \log(y_{\mathrm{true}}) - \log(\hat{y})$  ·  Log-transformed prices", 
                  fontsize=9, color='gray', pad=3)
     
@@ -502,7 +544,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylabel("Ordered Residuals", fontsize=11)
         
         # Title + annotation
-        fig.suptitle("Q-Q Plot", fontsize=13, fontweight='bold', y=0.98)
+        fig.suptitle("Q-Q Plot", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Residuals vs Normal reference  ·  Log-transformed prices", 
                      fontsize=9, color='gray', pad=3)
         
@@ -562,6 +604,16 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     z_abs_max = max(np.abs(mu_z[:, 0]).max(), np.abs(mu_z[:, 1]).max()) * 1.05
     z_lim = (-z_abs_max, z_abs_max)
     
+    # Helper to format dollars
+    def format_price(val):
+        """Format price value to human-readable string like $150K, $1.2M"""
+        if val >= 1_000_000:
+            return f"${val/1_000_000:.1f}M"
+        elif val >= 1_000:
+            return f"${val/1_000:.0f}K"
+        else:
+            return f"${val:.0f}"
+    
     # --- 7a. Latent colored by SALE PRICE Deciles ---
     log_price_all = df_pred[log_y_col].astype(float).values
     mask_finite_price = np.isfinite(log_price_all)
@@ -581,9 +633,15 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                         edgecolors='none', zorder=2)
         
         cbar = plt.colorbar(sc, ax=ax)
-        cbar.set_label("Sale Price Decile", fontsize=10)
-        cbar.set_ticks([0, 4.5, 9])
-        cbar.set_ticklabels(['Low', 'Mid', 'High'])
+        cbar.set_label("Sale Price", fontsize=10)
+        
+        # Convert decile edges from log-price to actual dollars for labels
+        # decile_edges are in log-price space, need to exp() and format
+        price_edges = np.exp(decile_edges)  # Back to dollars
+        tick_positions = [0, 2, 4, 6, 8, 9]
+        tick_labels = [format_price(price_edges[i]) for i in [0, 2, 5, 7, 9, 10]]
+        cbar.set_ticks(tick_positions)
+        cbar.set_ticklabels(tick_labels)
         
         ax.set_xlabel("Latent Dim 1", fontsize=11)
         ax.set_ylabel("Latent Dim 2", fontsize=11)
@@ -593,7 +651,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylim(z_lim)
         ax.set_aspect('equal', adjustable='box')
         
-        fig.suptitle("Latent Space by Price", fontsize=13, fontweight='bold', y=0.98)
+        fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Points colored by sale price decile", fontsize=9, color='gray', pad=3)
         
         ax.spines['top'].set_visible(False)
@@ -619,7 +677,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylim(z_lim)
         ax.set_aspect('equal', adjustable='box')
         
-        fig.suptitle("Latent Space Density", fontsize=13, fontweight='bold', y=0.98)
+        fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Hexbin showing point concentration", fontsize=9, color='gray', pad=3)
         
         ax.spines['top'].set_visible(False)
@@ -655,7 +713,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylim(z_lim)
             ax.set_aspect('equal', adjustable='box')
             
-            fig.suptitle("Latent Space by Size", fontsize=13, fontweight='bold', y=0.98)
+            fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
             ax.set_title(f"Points colored by {size_col}", fontsize=9, color='gray', pad=3)
             
             ax.spines['top'].set_visible(False)
@@ -728,7 +786,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.set_ylim(z_lim)
         ax.set_aspect('equal', adjustable='box')
         
-        fig.suptitle("Latent Space by Building Class", fontsize=13, fontweight='bold', y=0.98)
+        fig.suptitle("Latent Space by Building Class", fontsize=14, fontweight='bold', y=0.98)
         ax.set_title("Aggregated to major category (first letter)", fontsize=9, color='gray', pad=3)
         
         # Legend outside if many classes
@@ -758,7 +816,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
     
-    fig.suptitle("Latent Marginal Distributions", fontsize=13, fontweight='bold', y=1.02)
+    fig.suptitle("Latent Marginal Distributions", fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.show()
 

@@ -1,5 +1,22 @@
 # HW3 Project Changelog
 
+## December 21, 2025 (21:30 EST) - Revised HW3 Poster (UNREVIEWED)
+
+### Revised
+- **Poster**: Updated `hws/hw3.d/poster.tex`.
+  - Added formal Header with Columbia branding.
+  - Clarified "Urban Planning" vs "Equitable Taxation" distinction.
+  - Refined Methodlogy section with standard notation.
+  - Updated Table 1 to use "Million" units.
+  - Increased column spacing and removed parenthetical referencing style.
+
+## December 21, 2025 (20:45 EST) - HW3 Poster Created (UNREVIEWED)
+
+### Added
+- **Poster**: Created `hws/hw3.d/poster.tex` and compiled `poster.pdf`.
+  - Implemeneted using `beamerposter` with a 3-column layout.
+  - Included motivation, methodology, results (table + loss curve), residual analysis, and latent space visualizations.
+
 ## December 11, 2025 (23:31 EST) - Session Wrap-Up (UNREVIEWED)
 
 ### File Recovery & Cleanup

@@ -187,7 +187,9 @@ Use commented section headers:
 - **Unified Structure**: Do not create separate "Future" or "Deferred" sections outside the P1/P2/P3 hierarchy. Tag future items (e.g., `[Final Project]`) within their appropriate priority level.
 - **Renumbering**: If inserting into a numbered list or structured sequence (like guideline sections), update numbering to maintain consistency.
 - **Timestamp Insertion**: Append `[Added: YYYY-MM-DD HH:MM]` to every new item upon insertion.
-- **Maintain Structure**: Ensure the item is placed logically within its priority group relative to others.
+- [ ] "maintain structure": ensure the item is placed logically within its priority group relative to others.
+- [ ] "Verbatim Reflection": When capturing user critiques or requests as TODOs, record the text **verbatim** (quoted exactly). Do NOT summarize, paraphrase, or abbreviate with ellipses (...). **Exception**: You may automatically correct obvious misspellings. (UNREVIEWED) [Added: 2025-12-21 21:45]
+
 
 #### 6.2 Completion Policy (UNREVIEWED) [Added: 2025-12-11 23:27]
 - **Move to Archive**: When a task is done, move it from `TODO.md` to `TODO-COMPLETED.md`.
@@ -205,6 +207,8 @@ Use commented section headers:
 - **Counts and Notation**: Avoid informal `n=X` notation in narrative text. Spell out counts (e.g., "The dataset consists of 122,712 properties").
 - **Hyphens & Dashes**: Use plain hyphens or colons/commas. Avoid em-dashes.
 - **Abbreviations**: Expand parenthetical lists into plain English.
+- **No Parentheticals**: Do not use parenthetical references anywhere. Revise text to integrate information directly into the sentence structure. **Exception**: Parentheses are permitted for introducing abbreviations or acronyms (e.g., "Semi-Supervised MIWAE (SemiSupMIWAE)"). (UNREVIEWED) [Updated: 2025-12-21 22:15]
+- **Caption Brevity**: Keep captions strictly descriptive of the artifact. Avoid methodological footnotes (e.g., "back-transformed") or weak interpretations (e.g., "skewed by tails") within the caption itself. (UNREVIEWED) [Added: 2025-12-21 22:15]
 
 #### 7.2 Data Description (UNREVIEWED) [Added: 2025-12-12 00:06]
 - **Date Ranges**: Explicitly state the temporal coverage of every data source.
