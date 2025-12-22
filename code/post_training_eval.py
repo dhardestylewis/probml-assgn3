@@ -636,35 +636,67 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     else:
         print("[Eval] Skipping QQ-plot (scipy not available).")
         
+    # --- Helper: Log Price to Currency Ticks ---
+    def get_log_price_ticks(min_log, max_log):
+        # Extended range to cover likely values
+        log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
+                     np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
+                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000),
+                     np.log(100_000_000), np.log(250_000_000), np.log(500_000_000),
+                     np.log(1_000_000_000)]
+        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M',
+                      '$100M', '$250M', '$500M', '$1B']
+        
+        valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if min_log <= t <= max_log]
+        
+        # Ensure we have at least min/max coverage if no standard ticks fall in range
+        if not valid_ticks:
+             valid_ticks = [(min_log, f"{np.exp(min_log)/1000:.0f}K"), (max_log, f"{np.exp(max_log)/1000:.0f}K")]
+             
+        return [t for t, l in valid_ticks], [l for t, l in valid_ticks]
+
     # --- Advanced Residual Diagnostics (Conditional Checks) ---
     print("\n[Eval] Generating Advanced Residual Diagnostics (Conditional Checks)...")
     
     # Check if we captured variance and indices
     if 'var_log_eval' in locals() and var_log_eval is not None:
-        sigma_log_eval = np.sqrt(var_log_eval)
-        std_resid = resid_log / sigma_log_eval
+        
+        # Filter for Price >= $100k (consistency with latent plots)
+        MIN_PRICE_LOG = np.log(100_000)
+        mask_price = y_true_log_eval >= MIN_PRICE_LOG
+        
+        print(f"[Eval] Filtering diagnostics for Price >= $100k. Kept {mask_price.sum()}/{len(mask_price)} samples.")
+        
+        # Create filtered views
+        mu_log_eval_f = mu_log_eval[mask_price]
+        resid_log_f = resid_log[mask_price]
+        var_log_eval_f = var_log_eval[mask_price]
+        y_true_log_eval_f = y_true_log_eval[mask_price]
+        
+        sigma_log_eval_f = np.sqrt(var_log_eval_f)
+        std_resid_f = resid_log_f / sigma_log_eval_f
         
         # 1. Calibration Table
-        print("\n=== Calibration Metrics (Empirical Coverage) ===")
+        print("\n=== Calibration Metrics (Empirical Coverage) [Filtered >=$100k] ===")
         print("Interval  | Nominal | Empirical | Gap")
         print("----------|---------|-----------|-----")
         for alpha in [0.50, 0.80, 0.95]:
             # Central interval z-score
             z_score = stats.norm.ppf(0.5 + alpha/2)
-            lower = mu_log_eval - z_score * sigma_log_eval
-            upper = mu_log_eval + z_score * sigma_log_eval
-            covered = (y_true_log_eval >= lower) & (y_true_log_eval <= upper)
+            lower = mu_log_eval_f - z_score * sigma_log_eval_f
+            upper = mu_log_eval_f + z_score * sigma_log_eval_f
+            covered = (y_true_log_eval_f >= lower) & (y_true_log_eval_f <= upper)
             empirical = covered.mean()
             print(f"{int(alpha*100)}% CI    | {alpha:.3f}   | {empirical:.3f}     | {empirical-alpha:+.3f}")
             
         # 2a. Standardized Residuals vs Prediction (Heteroskedasticity check)
         fig, ax = plt.subplots(figsize=(8, 5))
-        ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='gray')
+        ax.scatter(mu_log_eval_f, std_resid_f, alpha=0.1, s=2, color='gray')
         
         # Bin mean/std
         # Bin by predicted value
-        bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
-        bin_idx = np.digitize(mu_log_eval, bins)
+        bins = np.linspace(mu_log_eval_f.min(), mu_log_eval_f.max(), 20)
+        bin_idx = np.digitize(mu_log_eval_f, bins)
         
         bin_means = []
         bin_stds = []
@@ -673,8 +705,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         for i in range(1, len(bins)):
             mask_bin = bin_idx == i
             if mask_bin.sum() > 5:
-                bin_means.append(std_resid[mask_bin].mean())
-                bin_stds.append(std_resid[mask_bin].std())
+                bin_means.append(std_resid_f[mask_bin].mean())
+                bin_stds.append(std_resid_f[mask_bin].std())
                 bin_centers.append(0.5 * (bins[i-1] + bins[i]))
         
         if len(bin_centers) > 0:
@@ -685,17 +717,35 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.axhline(1, color='green', linestyle=':', label='Ideal Std=1')
         ax.axhline(-1, color='green', linestyle=':')
         
-        ax.set_xlabel("Predicted Log Price")
-        ax.set_ylabel("Standardized Residual $z$")
+        # Grid for bins
+        for b in bins:
+            ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
+            
+        # Ticks: Log -> Currency
+        curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval_f.min(), mu_log_eval_f.max())
+        ax.set_xticks(curr_ticks)
+        ax.set_xticklabels(curr_labels)
+        
+        ax.set_xlabel("Predicted Price (Log Scale)", fontsize=11)
+        ax.set_ylabel("Standardized Residual", fontsize=11)
         ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
+        
+        # Fixed Y-Range [-20, 20] as requested
+        ax.set_ylim(-20, 20)
+        
+        # Footnote
+        plt.figtext(0.5, 0.01, "Values in Log Space. 1 unit = 1 Standard Deviation", 
+                    ha="center", fontsize=9, fontstyle='italic')
+        
         ax.legend()
+        plt.tight_layout()
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
 
         # 2b. Standardized QQ Plot (Normality of conditional noise)
         if HAVE_SCIPY:
             fig, ax = plt.subplots(figsize=(6, 6))
-            stats.probplot(std_resid, dist="norm", plot=ax)
+            stats.probplot(std_resid_f, dist="norm", plot=ax)
             ax.set_title("QQ-Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold')
             ax.set_ylabel("Ordered Standardized Residuals")
             # Add identity line
@@ -709,11 +759,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
 
         # 2c. Absolute Residuals vs Prediction (Another Heteroskedasticity view)
         fig, ax = plt.subplots(figsize=(8, 5))
-        abs_resid = np.abs(resid_log)
-        ax.scatter(mu_log_eval, abs_resid, alpha=0.1, s=2, color='gray')
+        abs_resid = np.abs(resid_log_f)
+        ax.scatter(mu_log_eval_f, abs_resid, alpha=0.1, s=2, color='gray')
         
         # Smooth trend
-        if len(mu_log_eval) > 100:
+        if len(mu_log_eval_f) > 100:
              bin_abs_means = []
              bin_centers_abs = []
              for i in range(1, len(bins)):
@@ -742,7 +792,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.axhline(1.0, color='black', linestyle='--', label='Ideal Uniform')
         ax.set_xlabel("PIT Value $u = F(y)$")
         ax.set_ylabel("Density")
-        ax.set_title("PIT Histogram (Calibration Check)", fontweight='bold')
+        ax.set_title("PIT Histogram", fontweight='bold')
+        ax.text(0.5, 1.02, "Calibration Check", ha='center', va='bottom', transform=ax.transAxes, fontsize=10, color='gray')
         ax.set_xlim(0, 1)
         ax.legend()
         save_figure("residuals_pit_histogram.png")
@@ -769,9 +820,32 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
     ax.axhline(0, color='black', linestyle='--')
     
-    ax.set_xlabel("Predicted Log Price")
+    # Grid
+    for b in bins:
+        ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
+        
+    # Currency Ticks
+    curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval_f.min(), mu_log_eval_f.max())
+    ax.set_xticks(curr_ticks)
+    ax.set_xticklabels(curr_labels)
+    
+    ax.set_xlabel("Predicted Price (Log Scale)")
     ax.set_ylabel("Residual (Log Space)")
-    ax.set_title("Conditional Bias: Residual vs Prediction", fontweight='bold')
+    ax.set_title("Conditional Bias", fontweight='bold')
+    
+    # Range limits as requested
+    ax.set_ylim(-10, 10)
+    # Check max range for X (might not need explicit limit if ticks cover it, but user mentioned 20 max range?) 
+    # User said "20 horizontal max range". Assuming this means absolute residuals max or similar? 
+    # But this is Residual vs Pred. Pred is log price (11-15). Residual is -2 to 2 typically.
+    # Ah, User said "revise conditional bias to -10 10 vertical scale and 20 horizontal max range"
+    # Maybe horizontal means max absolute residual? But x-axis is prediction.
+    # Or maybe they meant standardized residual plot x-axis? 
+    # Given "20 horizontal max range" is ambiguous for "Predicted Log Price" (which is around 13-14), 
+    # I will assume they meant Y-axis range [-10, 10] and maybe X-axis is fine as is (data range).
+    # Wait, "20 horizontal max range" might refer to the *previous* request for residual axis? 
+    # Let's stick to X=Predicted (Currency), Y=Residual [-10, 10].
+    
     ax.legend()
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
@@ -804,17 +878,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     valid_sales = meta_subset.dropna(subset=[sale_col])
                     
                     if len(valid_sales) > 100:
-                         # Bin by 2 years
-                         valid_sales['year_bin'] = (valid_sales[sale_col] // 2) * 2
+                         # Bin by 1 year (Integer)
+                         valid_sales['year_bin'] = valid_sales[sale_col].round().astype(int)
                          
                          # Compute RMSE, MAE, Coverage per bin
-                         # We need y_true_log and mu_log aligned.
-                         # Since we are iterating on 'residual', we can check Mean Residual and MAE.
-                         # To check RMSE and Coverage, we need original columns aligned.
-                         # They are in meta_subset? No, meta_subset is from df_pred.
-                         # We added 'residual'.
-                         # We can approximate RMSE as sqrt(mean(residual^2)).
-                         
                          grp = valid_sales.groupby('year_bin')
                          bin_stats = pd.DataFrame({
                              'mean_resid': grp['residual'].mean(),
@@ -835,11 +902,21 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                          ax2.plot(bin_stats.index, bin_stats['rmse'], 'g--o', alpha=0.5, label='RMSE')
                          
                          ax.axhline(0, color='black', linestyle='--')
-                         ax.set_xlabel("Sale Year (2-Year Bins)")
+                         
+                         # Force Integer Ticks
+                         all_years = bin_stats.index.values
+                         ax.set_xticks(all_years)
+                         ax.set_xticklabels([str(int(y)) for y in all_years], rotation=45)
+                         
+                         ax.set_xlabel("Sale Year")
                          ax.set_ylabel("Mean Residual (Log)")
                          ax2.set_ylabel("RMSE (Log)", color='green')
                          
                          ax.set_title("Performance Stability by Sale Year", fontweight='bold')
+                         
+                         # Footnote
+                         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+                         
                          save_figure("residuals_by_sale_year.png")
                          plt.show()
 
@@ -1037,8 +1114,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   # Plot binned residuals (hexbin) to show spatial pattern
                   hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
-                  plt.colorbar(hb, ax=ax, label="Mean Residual (Log Space)")
-                  ax.set_title(f"Spatial Residual Map ({x_col}, {y_col})", fontweight='bold')
+                  plt.colorbar(hb, ax=ax, label="Mean Residual (Log)")
+                  ax.set_title("Spatial Residual Map (Manhattan)", fontweight='bold')
+                  
+                  # Remove Lat/Long Ticks
+                  ax.set_xticks([])
+                  ax.set_yticks([])
+                  ax.set_xlabel("")
+                  ax.set_ylabel("")
+                  
+                  # Try to enforce aspect ratio if we assume lat/long
+                  ax.set_aspect('equal', adjustable='box')
+                  
                   save_figure("residuals_spatial_map.png")
                   plt.show()
              else:
@@ -1765,14 +1852,39 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         n_present = len(present_classes)
         cmap = plt.cm.get_cmap('tab20', max(n_present, 1))
         
-        # Plot in predefined order (not data occurrence order)
+        # Plot in predefined order for color consistency, but labels on plot
+        # We will compute centroids for labels
+        centroids = {}
         for color_idx, letter in enumerate(present_classes):
             mask = (bldg_series == letter).values
             if not np.any(mask): 
                 continue
-            lbl = class_labels.get(letter, letter)
-            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, alpha=0.5, 
-                      color=cmap(color_idx), label=lbl, edgecolors='none')
+            
+            lbl_full = class_labels.get(letter, letter)
+            # Scatter
+            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=12, alpha=0.6, 
+                      color=cmap(color_idx), edgecolors='none') # No label in legend
+            
+            # Compute centroid for text label
+            # Robust median to ignore outliers
+            cx = np.median(bldg_z[mask, plot_dim1])
+            cy = np.median(bldg_z[mask, plot_dim2])
+            centroids[lbl_full] = (cx, cy, cmap(color_idx))
+
+        # Add Vertical Text Labels Bottom-to-Top
+        # We'll place them near centroids but verify readability
+        # Just placing at centroid with vertical orientation
+        
+        # Sort centroids by Y to stack them or just place at actual location?
+        # User said "write out using vertical bottom to top text the building classes"
+        # and "translate those".
+        
+        for lbl, (cx, cy, color) in centroids.items():
+            # Outline text for visibility
+            import matplotlib.patheffects as pe
+            ax.text(cx, cy, lbl, rotation=90, verticalalignment='center', horizontalalignment='center',
+                    fontsize=9, fontweight='bold', color=color,
+                    path_effects=[pe.withStroke(linewidth=2, foreground="white")])
         
         ax.set_xlabel(label_x, fontsize=11)
         ax.set_ylabel(label_y, fontsize=11)
@@ -1780,41 +1892,45 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
         ax.set_ylim(y_lim_fixed)
-        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
-        ax.set_title("Latent Space by Building Class\nNYC DOF Classification", 
-                     fontsize=12, fontweight='bold', pad=8)
+        ax.set_title("Latent Space by Building Class", fontsize=12, fontweight='bold', pad=8)
         
-        # Legend outside if many classes
-        if n_present <= 8:
-            ax.legend(fontsize=7, loc='upper right', framealpha=0.9)
-        else:
-            ax.legend(fontsize=6, loc='center left', bbox_to_anchor=(1.02, 0.5), 
-                     framealpha=0.9, ncol=1)
+        # No Legend
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        # Use n_present for layout decision
-        plt.tight_layout(rect=[0, 0, 0.85, 0.95] if n_present > 8 else [0, 0, 1, 0.95])
+        plt.tight_layout()
         save_figure("latent_space_bldg.png")
         plt.show()
 
-    # --- 7d. Marginal histograms ---
+    plt.show()
+    
+    # --- 7d-NEW. Latent Marginal Distributions (Uniform Scale) ---
+    # Plot top 3 dimensions with uniform scaling for comparability
     n_dims = min(mu_z.shape[1], 3)
-    fig, axes = plt.subplots(1, n_dims, figsize=(4*n_dims, 3.5))
+    fig, axes = plt.subplots(1, n_dims, figsize=(4*n_dims, 3.5), sharey=True, sharex=True)
     if n_dims == 1:
         axes = [axes]
     
+    # Compute global limit for x-axis
+    z_global_min = np.percentile(mu_z[:, :n_dims], 0.5)
+    z_global_max = np.percentile(mu_z[:, :n_dims], 99.5)
+    pad = (z_global_max - z_global_min) * 0.1
+    xlim_global = (z_global_min - pad, z_global_max + pad)
+
     for d, ax in enumerate(axes):
         ax.hist(mu_z[:, d], bins=40, alpha=0.8, color='#3498db', 
                 edgecolor='white', linewidth=0.3, density=True)
         ax.set_xlabel(f"Latent Dim {d+1}", fontsize=10)
-        ax.set_ylabel("Density" if d == 0 else "", fontsize=10)
+        if d == 0:
+            ax.set_ylabel("Density", fontsize=10)
+        
+        ax.set_xlim(xlim_global)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
     
-    fig.suptitle("Latent Marginal Distributions", fontsize=14, fontweight='bold', y=1.02)
+    fig.suptitle("Latent Marginal Distributions (Uniform Scale)", fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
     save_figure("latent_marginals.png")
     plt.show()
