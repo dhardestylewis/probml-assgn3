@@ -615,56 +615,106 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         z_lim = None  # Will use per-axis limits
         print(f"[Eval] Using per-axis limits (variance ratio={variance_ratio:.2f} >= 2.0)")
     
-    # Helper to format dollars
-    def format_price(val):
-        """Format price value to human-readable string like $150K, $1.2M"""
-        if val >= 1_000_000:
-            return f"${val/1_000_000:.1f}M"
-        elif val >= 1_000:
-            return f"${val/1_000:.0f}K"
-        else:
-            return f"${val:.0f}"
+    # Helper for KDE density contours
+    def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
+        """Add KDE density contour lines to a plot."""
+        if not HAVE_SCIPY:
+            return
+        try:
+            from scipy.stats import gaussian_kde
+            xy = np.vstack([x, y])
+            kde = gaussian_kde(xy)
+            xmin, xmax = x.min(), x.max()
+            ymin, ymax = y.min(), y.max()
+            xi, yi = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+            zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+            ax.contour(xi, yi, zi, levels=levels, colors=color, alpha=alpha, linewidths=0.8)
+        except Exception as e:
+            print(f"[Eval] Contour error: {e}")
     
-    # --- 7a. Latent colored by SALE PRICE Deciles ---
+    # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
     log_price_all = df_pred[log_y_col].astype(float).values
-    mask_finite_price = np.isfinite(log_price_all)
     
-    if mask_finite_price.sum() > 0:
-        decile_edges = np.quantile(log_price_all[mask_finite_price], np.linspace(0, 1, 11))
-        decile_idx = np.full_like(log_price_all, fill_value=-1, dtype=int)
-        decile_idx[mask_finite_price] = np.searchsorted(decile_edges[1:-1], 
-                                                         log_price_all[mask_finite_price], side="right")
-        valid_mask = decile_idx >= 0
+    # Filter: require price >= $100,000 (log >= 11.51) to exclude anomalies
+    MIN_PRICE_LOG = np.log(100_000)  # ~11.51
+    mask_valid_price = np.isfinite(log_price_all) & (log_price_all >= MIN_PRICE_LOG)
+    
+    print(f"[Eval] Price filter: {mask_valid_price.sum()} / {np.isfinite(log_price_all).sum()} " +
+          f"properties with sale price >= $100K")
+    
+    if mask_valid_price.sum() > 100:
+        valid_log_price = log_price_all[mask_valid_price]
+        valid_z_price = mu_z[mask_valid_price]
         
+        # --- VERSION 1: Scatter + Contour ---
         fig, ax = plt.subplots(figsize=(7, 6))
         
-        # Layered scatter: all transparent, subset opaque
-        sc = ax.scatter(mu_z[valid_mask, 0], mu_z[valid_mask, 1], 
-                        c=decile_idx[valid_mask], s=8, alpha=0.5, cmap="viridis",
+        # Add density contours first (behind scatter)
+        add_density_contours(valid_z_price[:, 0], valid_z_price[:, 1], ax, 
+                            levels=6, color='white', alpha=0.7)
+        
+        # Scatter with continuous log-price coloring
+        sc = ax.scatter(valid_z_price[:, 0], valid_z_price[:, 1], 
+                        c=valid_log_price, s=8, alpha=0.5, cmap="viridis",
                         edgecolors='none', zorder=2)
         
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label("Sale Price", fontsize=10)
         
-        # Convert decile edges from log-price to actual dollars for labels
-        # decile_edges are in log-price space, need to exp() and format
-        price_edges = np.exp(decile_edges)  # Back to dollars
-        tick_positions = [0, 2, 4, 6, 8, 9]
-        tick_labels = [format_price(price_edges[i]) for i in [0, 2, 5, 7, 9, 10]]
-        cbar.set_ticks(tick_positions)
-        cbar.set_ticklabels(tick_labels)
+        # Log-scale tick labels (powers of 10)
+        log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
+                     np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
+                     np.log(10_000_000)]
+        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M']
+        # Filter to range of data
+        vmin, vmax = valid_log_price.min(), valid_log_price.max()
+        valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if vmin <= t <= vmax]
+        if valid_ticks:
+            cbar.set_ticks([t for t, l in valid_ticks])
+            cbar.set_ticklabels([l for t, l in valid_ticks])
         
         ax.set_xlabel("Latent Dim 1", fontsize=11)
         ax.set_ylabel("Latent Dim 2", fontsize=11)
         
-        # Apply axes based on variance analysis
         if use_equal_axes:
             ax.set_xlim(z_lim)
             ax.set_ylim(z_lim)
             ax.set_aspect('equal', adjustable='box')
         
         fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Points colored by sale price decile", fontsize=9, color='gray', pad=3)
+        ax.set_title("Scatter with density contours · Log-scale colorbar", fontsize=9, color='gray', pad=3)
+        
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+        
+        # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
+        fig, ax = plt.subplots(figsize=(7, 6))
+        
+        hb = ax.hexbin(valid_z_price[:, 0], valid_z_price[:, 1], 
+                       C=valid_log_price, reduce_C_function=np.mean,
+                       gridsize=40, cmap='viridis', mincnt=1, linewidths=0.2)
+        
+        cbar = plt.colorbar(hb, ax=ax)
+        cbar.set_label("Mean Sale Price", fontsize=10)
+        
+        # Same log-scale labels
+        if valid_ticks:
+            cbar.set_ticks([t for t, l in valid_ticks])
+            cbar.set_ticklabels([l for t, l in valid_ticks])
+        
+        ax.set_xlabel("Latent Dim 1", fontsize=11)
+        ax.set_ylabel("Latent Dim 2", fontsize=11)
+        
+        if use_equal_axes:
+            ax.set_xlim(z_lim)
+            ax.set_ylim(z_lim)
+            ax.set_aspect('equal', adjustable='box')
+        
+        fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
+        ax.set_title("Hexbin showing mean price per region", fontsize=9, color='gray', pad=3)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
@@ -672,11 +722,11 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
     
-    # --- 7a-bis. Hexbin density plot for latent space ---
-    if mask_finite_price.sum() > 0:
+    # --- 7a-bis. Hexbin density plot for latent space (count only) ---
+    if mask_valid_price.sum() > 100:
         fig, ax = plt.subplots(figsize=(7, 6))
         
-        hb = ax.hexbin(mu_z[valid_mask, 0], mu_z[valid_mask, 1], 
+        hb = ax.hexbin(valid_z_price[:, 0], valid_z_price[:, 1], 
                        gridsize=40, cmap='Blues', mincnt=1, linewidths=0.2)
         
         cbar = plt.colorbar(hb, ax=ax)
@@ -710,14 +760,27 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         
         if mask_valid_size.sum() > 100:
             log_size = np.log10(size_vals[mask_valid_size])
-            valid_z = mu_z[mask_valid_size]
+            valid_z_size = mu_z[mask_valid_size]
             
+            # --- VERSION 1: Scatter + Contour ---
             fig, ax = plt.subplots(figsize=(7, 6))
-            sc = ax.scatter(valid_z[:, 0], valid_z[:, 1], c=log_size, s=8, alpha=0.5, 
+            
+            add_density_contours(valid_z_size[:, 0], valid_z_size[:, 1], ax,
+                                levels=6, color='white', alpha=0.7)
+            
+            sc = ax.scatter(valid_z_size[:, 0], valid_z_size[:, 1], c=log_size, s=8, alpha=0.5, 
                            cmap="magma", edgecolors='none', zorder=2)
             
             cbar = plt.colorbar(sc, ax=ax)
-            cbar.set_label(f"Log₁₀(Sq Ft)", fontsize=10)
+            cbar.set_label("Square Footage", fontsize=10)
+            # Log-scale ticks for sqft
+            sqft_ticks = [2, 2.5, 3, 3.5, 4, 4.5, 5]  # log10 values
+            sqft_labels = ['100', '300', '1K', '3K', '10K', '30K', '100K']
+            vmin, vmax = log_size.min(), log_size.max()
+            valid_sqft = [(t, l) for t, l in zip(sqft_ticks, sqft_labels) if vmin <= t <= vmax]
+            if valid_sqft:
+                cbar.set_ticks([t for t, l in valid_sqft])
+                cbar.set_ticklabels([l for t, l in valid_sqft])
             
             ax.set_xlabel("Latent Dim 1", fontsize=11)
             ax.set_ylabel("Latent Dim 2", fontsize=11)
@@ -728,7 +791,37 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                 ax.set_aspect('equal', adjustable='box')
             
             fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
-            ax.set_title(f"Points colored by {size_col}", fontsize=9, color='gray', pad=3)
+            ax.set_title(f"Scatter with density contours · {size_col}", fontsize=9, color='gray', pad=3)
+            
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
+            plt.show()
+            
+            # --- VERSION 2: Hexbin by size ---
+            fig, ax = plt.subplots(figsize=(7, 6))
+            
+            hb = ax.hexbin(valid_z_size[:, 0], valid_z_size[:, 1], 
+                           C=log_size, reduce_C_function=np.mean,
+                           gridsize=40, cmap='magma', mincnt=1, linewidths=0.2)
+            
+            cbar = plt.colorbar(hb, ax=ax)
+            cbar.set_label("Mean Sq Ft", fontsize=10)
+            if valid_sqft:
+                cbar.set_ticks([t for t, l in valid_sqft])
+                cbar.set_ticklabels([l for t, l in valid_sqft])
+            
+            ax.set_xlabel("Latent Dim 1", fontsize=11)
+            ax.set_ylabel("Latent Dim 2", fontsize=11)
+            
+            if use_equal_axes:
+                ax.set_xlim(z_lim)
+                ax.set_ylim(z_lim)
+                ax.set_aspect('equal', adjustable='box')
+            
+            fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
+            ax.set_title("Hexbin showing mean size per region", fontsize=9, color='gray', pad=3)
             
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
@@ -750,42 +843,43 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         # Aggregate to first letter (major category)
         bldg_series = df_pred[bldg_class_col].astype(str).str[0].str.upper()
         
-        # NYC DOF Building Class codes - organized by major category per official taxonomy
-        # Source: NYC Department of Finance Property Classification Codes
-        # Ordered: Residential -> Commercial -> Industrial -> Special Purpose -> Government/Other
-        class_labels = {
-            # RESIDENTIAL (1-4 family)
-            'A': '1-2 Family Dwellings',
-            'B': '2 Family Dwellings', 
-            # RESIDENTIAL (Multi-family)
-            'C': 'Walk-up Apartments',
-            'D': 'Elevator Apartments',
-            'R': 'Condominiums',
-            'S': 'Mixed Residential',
-            # COMMERCIAL
-            'K': 'Retail/Stores',
-            'O': 'Office Buildings',
-            'H': 'Hotels',
-            'L': 'Loft Buildings',
-            # INDUSTRIAL
-            'E': 'Warehouses',
-            'F': 'Factories/Industrial',
-            'G': 'Garages/Gas Stations',
-            # SPECIAL PURPOSE
-            'I': 'Hospitals/Health',
-            'J': 'Theaters/Entertainment',
-            'M': 'Religious',
-            'N': 'Asylums/Nursing Homes',
-            'P': 'Indoor Recreation',
-            'Q': 'Outdoor Recreation',
-            'T': 'Transportation',
-            'W': 'Educational',
-            # GOVERNMENT/OTHER
-            'U': 'Utility',
-            'V': 'Vacant Land',
-            'Y': 'Government Property',
-            'Z': 'Miscellaneous',
-        }
+        # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
+        # Order: Condos/Co-ops -> Multi-family Rental -> Houses -> Commercial -> Industrial -> Other
+        # This matches how typical NYC real estate listings organize property types
+        class_labels_ordered = [
+            # Most common residential (what buyers/renters search for)
+            ('R', 'Condominiums'),
+            ('D', 'Elevator Apartments'),
+            ('C', 'Walk-up Apartments'),
+            ('S', 'Mixed Residential'),
+            # Houses
+            ('A', '1-2 Family Houses'),
+            ('B', '2 Family Houses'),
+            # Commercial/Mixed-use
+            ('K', 'Retail/Stores'),
+            ('O', 'Office Buildings'),
+            ('H', 'Hotels'),
+            ('L', 'Lofts'),
+            # Industrial
+            ('E', 'Warehouses'),
+            ('F', 'Factories'),
+            ('G', 'Garages'),
+            # Special Purpose
+            ('I', 'Healthcare'),
+            ('J', 'Entertainment'),
+            ('M', 'Religious'),
+            ('N', 'Nursing/Asylums'),
+            ('P', 'Recreation (Indoor)'),
+            ('Q', 'Recreation (Outdoor)'),
+            ('T', 'Transportation'),
+            ('W', 'Educational'),
+            # Other
+            ('U', 'Utility'),
+            ('V', 'Vacant Land'),
+            ('Y', 'Government'),
+            ('Z', 'Miscellaneous'),
+        ]
+        class_labels = {k: v for k, v in class_labels_ordered}
         
         codes, uniques = pd.factorize(bldg_series)
         
