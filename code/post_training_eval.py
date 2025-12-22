@@ -577,7 +577,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                    c='#2ecc71', s=20, alpha=0.9, 
                    edgecolors='#1a7a3e', linewidths=0.5, zorder=4)
         
-        ax.set_xlabel(f"Theoretical Quantiles (Student-t, ν={df_fit:.1f})", fontsize=11)
+        ax.set_xlabel("Theoretical Quantiles", fontsize=11)
         ax.set_ylabel("Ordered Residuals", fontsize=11)
         
         # Title
