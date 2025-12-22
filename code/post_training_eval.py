@@ -829,6 +829,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         FEATURE_RENAMES = {
             'building_sales_sum': 'Bldg Sales Vol',
             'unit_sales_mean_roll2': 'Recent Trend',
+            'unit_sales_mean_cum': 'Avg Cumul Sales',
             'unique_units': 'Unit Count',
             'log_gross_sqft': 'Log Size',
             'gross_sqft': 'Size',
@@ -867,7 +868,6 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             print(f"[Eval]   SHAP-based labels applied: '{z1_label}', '{z2_label}'")
             
             # Principled Redundancy Check: Latent Value Correlation
-            # We use the full means mu_z, not the shap values
             z1_vals = mu_z[:, 0]
             z2_vals = mu_z[:, 1]
             latent_corr = np.corrcoef(z1_vals, z2_vals)[0, 1]
@@ -875,7 +875,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             print(f"[Eval]   Latent Coord Correlation (z1 vs z2): {latent_corr:.3f}")
             if abs(latent_corr) > 0.8:
                  print("[Eval]   WARNING: High correlation between latent coordinates. "
-                       "Attributions may splits across redundant axes.")
+                       "Attributions may split across redundant axes.")
         else:
             print("[Eval]   Could not extract SHAP values.")
 
@@ -883,6 +883,61 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         print(f"[Eval]   SHAP attribution failed: {e}")
         import traceback
         traceback.print_exc()
+
+    # --- Latent Importance for Price Prediction (Permutation Test) ---
+    print("\n[Eval] Calculating Latent Importance for Price Prediction (Z -> Y)...")
+    try:
+        # Check for price head
+        if not hasattr(vae_model, 'price_mean_head'):
+            print("[Eval]   No 'price_mean_head' found on model. Skipping Z->Y importance.")
+        else:
+            # 1. Baseline Performance (MSE/R2 using all Z)
+            # Use full mu_z (random subset for speed if huge)
+            n_perm = min(5000, len(mu_z))
+            perm_idx = np.random.choice(len(mu_z), n_perm, replace=False)
+            
+            z_batch = mu_z[perm_idx]
+            y_target = y_true_log_eval[perm_idx] if y_true_log_eval is not None else np.zeros(n_perm)
+            
+            # Helper to predict Y from Z
+            def predict_y_from_z(z_in):
+                t_z = torch.from_numpy(z_in).float().to(DEVICE)
+                with torch.no_grad():
+                    # Output of price_mean_head is usually (N, 1)
+                    y_out = vae_model.price_mean_head(t_z)
+                return y_out.cpu().numpy().ravel()
+            
+            y_pred_base = predict_y_from_z(z_batch)
+            mse_base = np.mean((y_target - y_pred_base)**2)
+            
+            print(f"[Eval]   Baseline MSE (subset n={n_perm}): {mse_base:.4f}")
+            
+            # 2. Permute each dimension and measure MSE increase
+            importances = []
+            for dim_i in range(z_batch.shape[1]):
+                z_permuted = z_batch.copy()
+                # Shuffle ONLY this dimension
+                np.random.shuffle(z_permuted[:, dim_i])
+                
+                y_pred_perm = predict_y_from_z(z_permuted)
+                mse_perm = np.mean((y_target - y_pred_perm)**2)
+                
+                # Importance = Increase in MSE
+                imp = mse_perm - mse_base
+                importances.append(imp)
+                print(f"[Eval]     z{dim_i+1} Importance (MSE increase): {imp:.4f}")
+            
+            # Normalize to percentages
+            total_imp = sum(importances) + 1e-9
+            print(f"[Eval]   Relative Importance: " + 
+                  ", ".join([f"z{i+1}={100*imp/total_imp:.0f}%" for i, imp in enumerate(importances)]))
+            
+            if len(importances) >= 3 and importances[2] / total_imp > 0.10:
+                print("[Eval]   NOTE: z3 has >10% importance. Consider visualizing it.")
+                
+    except Exception as e:
+        print(f"[Eval]   Latent importance failed: {e}")
+
 
     
     
