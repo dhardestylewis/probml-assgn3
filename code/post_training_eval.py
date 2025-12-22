@@ -467,13 +467,13 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     if HAVE_SCIPY:
         # Use already-fitted parameters from above (df_fit, loc_fit, scale_fit)
         
-        # Student-t references: choose values that STRADDLE the fitted df
-        # E.g., if fitted df=5, show df=3 (heavier) and df=8 (lighter)
-        df_lower = max(2.5, df_fit - 2)  # heavier tails
-        df_upper = df_fit + 3  # lighter tails
+        # Student-t references: use MULTIPLICATIVE ratios around fitted df
+        # E.g., if fitted df=5, show df=2.5 (heavier, ν/2) and df=10 (lighter, ν*2)
+        df_lower = max(2.1, df_fit / 2)  # heavier tails (half the df)
+        df_upper = df_fit * 2  # lighter tails (double the df)
         
-        for nu_ref, style, lbl in [(df_lower, ':', f'ν={df_lower:.0f} (heavier)'), 
-                                    (df_upper, '-.', f'ν={df_upper:.0f} (lighter)')]:
+        for nu_ref, style, lbl in [(df_lower, ':', f'ν={df_lower:.1f} (heavier)'), 
+                                    (df_upper, '-.', f'ν={df_upper:.1f} (lighter)')]:
             # Match variance: scale = std / sqrt(nu/(nu-2))
             if nu_ref > 2:
                 scale_ref = std_fit / np.sqrt(nu_ref / (nu_ref - 2))
@@ -678,20 +678,25 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label("Sale Price", fontsize=10)
         
-        # Log-scale tick labels - include min and max values
+        # Log-scale tick labels - extended to billions
         vmin, vmax = valid_log_price.min(), valid_log_price.max()
         log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
                      np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
-                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000)]
-        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M']
+                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000),
+                     np.log(100_000_000), np.log(250_000_000), np.log(500_000_000),
+                     np.log(1_000_000_000), np.log(2_500_000_000), np.log(5_000_000_000)]
+        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M',
+                      '$100M', '$250M', '$500M', '$1B', '$2.5B', '$5B']
         
         # Filter to range and always include min/max
         valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if vmin <= t <= vmax]
         
-        # Add actual min/max if not covered by standard ticks
+        # Format price with B for billions
         def format_price(val):
             price = np.exp(val)
-            if price >= 1_000_000:
+            if price >= 1_000_000_000:
+                return f"${price/1_000_000_000:.1f}B"
+            elif price >= 1_000_000:
                 return f"${price/1_000_000:.1f}M"
             else:
                 return f"${price/1_000:.0f}K"
@@ -918,20 +923,22 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ]
         class_labels = {k: v for k, v in class_labels_ordered}
         
-        codes, uniques = pd.factorize(bldg_series)
-        
         fig, ax = plt.subplots(figsize=(8, 6))
         
-        # Use a categorical colormap
-        cmap = plt.cm.get_cmap('tab20', len(uniques))
+        # Use colormap with colors assigned in the PREDEFINED ORDER
+        # This ensures legend order matches color order
+        present_classes = [letter for letter, _ in class_labels_ordered if letter in bldg_series.values]
+        n_present = len(present_classes)
+        cmap = plt.cm.get_cmap('tab20', max(n_present, 1))
         
-        for code, letter in enumerate(uniques):
-            mask = codes == code
+        # Plot in predefined order (not data occurrence order)
+        for color_idx, letter in enumerate(present_classes):
+            mask = (bldg_series == letter).values
             if not np.any(mask): 
                 continue
             lbl = class_labels.get(letter, letter)
             ax.scatter(mu_z[mask, 0], mu_z[mask, 1], s=8, alpha=0.5, 
-                      color=cmap(code), label=lbl, edgecolors='none')
+                      color=cmap(color_idx), label=lbl, edgecolors='none')
         
         ax.set_xlabel("Latent Dimension 1", fontsize=11)
         ax.set_ylabel("Latent Dimension 2", fontsize=11)
@@ -941,11 +948,11 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.set_ylim(z_lim)
             ax.set_aspect('equal', adjustable='box')
         
-        fig.suptitle("Latent Space by Building Class", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("NYC DOF Building Classification", fontsize=9, color='gray', pad=3)
+        ax.set_title("Latent Space by Building Class\nNYC DOF Classification", 
+                     fontsize=12, fontweight='bold', pad=8)
         
         # Legend outside if many classes
-        if len(uniques) <= 8:
+        if n_present <= 8:
             ax.legend(fontsize=7, loc='upper right', framealpha=0.9)
         else:
             ax.legend(fontsize=6, loc='center left', bbox_to_anchor=(1.02, 0.5), 
