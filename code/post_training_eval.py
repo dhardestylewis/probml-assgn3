@@ -507,6 +507,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
 
+    # --- 6b-ORIG. ORIGINAL Simple QQ-plot vs Normal (for comparison) ---
+    if HAVE_SCIPY:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        stats.probplot(resid_log, dist="norm", plot=ax)
+        ax.set_title("QQ-plot: Residuals vs Normal\n(Original Simple Version)", 
+                     fontsize=12, fontweight='bold')
+        ax.set_xlabel("Theoretical Quantiles (Normal)")
+        ax.set_ylabel("Ordered Residuals")
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+    
     # --- 6b. QQ-plot vs Student-t reference ---
     if HAVE_SCIPY:
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -649,8 +661,32 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         except Exception as e:
             print(f"[Eval] Contour error: {e}")
     
-    # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
+    # --- 7a-ORIG. ORIGINAL Simple latent scatter by price deciles (for comparison) ---
     log_price_all = df_pred[log_y_col].astype(float).values
+    mask_finite_price = np.isfinite(log_price_all)
+    
+    if mask_finite_price.sum() > 0:
+        # Compute decile edges on finite values
+        decile_edges = np.quantile(log_price_all[mask_finite_price], np.linspace(0, 1, 11))
+        decile_idx = np.full_like(log_price_all, fill_value=-1, dtype=int)
+        decile_idx[mask_finite_price] = np.searchsorted(decile_edges[1:-1], 
+                                                         log_price_all[mask_finite_price], side="right")
+        valid_mask = decile_idx >= 0
+        
+        fig, ax = plt.subplots(figsize=(7, 6))
+        sc = ax.scatter(mu_z[valid_mask, 0], mu_z[valid_mask, 1],
+                        c=decile_idx[valid_mask], s=5, alpha=0.6, cmap="viridis")
+        cbar = plt.colorbar(sc, ax=ax)
+        cbar.set_label("Sale-price decile (0=lowest, 9=highest)")
+        ax.set_xlabel("z1")
+        ax.set_ylabel("z2")
+        ax.set_title("Latent space (z1 vs z2) colored by sale-price deciles\n(Original Simple Version)",
+                     fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+    
+    # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
     
     # Filter: require price >= $100,000 (log >= 11.51) to exclude anomalies
     MIN_PRICE_LOG = np.log(100_000)  # ~11.51
@@ -880,9 +916,32 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     bldg_class_col = next((c for c in bldg_class_candidates if c in df_pred.columns), None)
     
     if bldg_class_col:
-        print(f"[Eval] Using '{bldg_class_col}' for Building Class Viz (aggregated to first letter).")
+        print(f"[Eval] Using '{bldg_class_col}' for Building Class Viz.")
         
-        # Aggregate to first letter (major category)
+        # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
+        bldg_series_raw = df_pred[bldg_class_col].astype(str)
+        codes_raw, uniques_raw = pd.factorize(bldg_series_raw)
+        
+        fig, ax = plt.subplots(figsize=(7, 6))
+        for code, label in enumerate(uniques_raw):
+            mask = codes_raw == code
+            if not np.any(mask):
+                continue
+            ax.scatter(mu_z[mask, 0], mu_z[mask, 1], s=5, alpha=0.5, label=label)
+        ax.set_xlabel("z1")
+        ax.set_ylabel("z2")
+        ax.set_title("Latent space (z1 vs z2) colored by building class\n(Original Simple Version)",
+                     fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        n_classes = len(uniques_raw)
+        if n_classes <= 10:
+            ax.legend(title="Building class", fontsize=8)
+        else:
+            ax.legend(title="Building class (truncated)", fontsize=6, ncol=2)
+        plt.tight_layout()
+        plt.show()
+        
+        # --- Enhanced version: Aggregate to first letter (major category) ---
         bldg_series = df_pred[bldg_class_col].astype(str).str[0].str.upper()
         
         # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
