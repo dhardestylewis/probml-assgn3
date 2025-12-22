@@ -471,9 +471,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         # Student-t references: use MULTIPLICATIVE ratios around fitted df
         # E.g., if fitted df=0.7, show df=0.35 (heavier, ν/2) and df=1.4 (lighter, ν*2)
+        # Reference lines: wider range to show contrast (10x factor)
         # Student-t is valid for any df > 0
-        df_lower = max(0.1, df_fit / 2)  # heavier tails (half the df), min 0.1
-        df_upper = df_fit * 2  # lighter tails (double the df)
+        df_lower = max(0.1, df_fit / 10.0)
+        df_upper = df_fit * 10.0
         
         # Reference lines: same gray color, different dash patterns
         # Lower ν (heavier tails) = sparser dashes, higher ν (lighter) = denser dashes
