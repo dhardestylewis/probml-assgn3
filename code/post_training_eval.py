@@ -60,6 +60,15 @@ def _latest_run_dir(results_root: str, fallback: str = None) -> str:
 run_dir = _latest_run_dir(RESULTS_ROOT, fallback=FALLBACK_RUN_DIR)
 print(f"[Eval] RUN_DIR = {run_dir}")
 
+def save_figure(filename):
+    """Helper to save the current figure to the run directory."""
+    try:
+        path = os.path.join(run_dir, filename)
+        plt.savefig(path, bbox_inches='tight', dpi=150)
+        print(f"[Eval] Saved plot to: {path}")
+    except Exception as e:
+        print(f"[Eval] Failed to save plot {filename}: {e}")
+
 RESULTS_HISTORY_PKL = os.path.join(run_dir, RESULTS_PKL_NAME)
 PRED_PARQUET_PATH   = os.path.join(run_dir, PRED_PARQUET_NAME)
 PRED_CSV_PATH       = os.path.join(run_dir, PRED_CSV_NAME)
@@ -402,6 +411,7 @@ else:
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     
+    save_figure("convergence_loss.png")
     plt.tight_layout()
     plt.show()
 
@@ -434,6 +444,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
+    save_figure("residuals_hist_simple.png")
     plt.show()
     
     # --- VERSION 2: Histogram + Normal reference only ---
@@ -455,6 +466,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_figure("residuals_hist_normal.png")
         plt.show()
     
     # --- VERSION 3: Full with Student-t overlays ---
@@ -509,6 +521,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.spines['right'].set_visible(False)
     
     plt.tight_layout(rect=[0, 0, 1, 0.95])
+    save_figure("residuals_hist_studentt.png")
     plt.show()
 
     # --- 6b-ORIG. ORIGINAL Simple QQ-plot vs Normal (for comparison) ---
@@ -521,6 +534,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylabel("Ordered Residuals")
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
+        save_figure("residuals_qq_simple.png")
         plt.show()
     
     # --- 6b. QQ-plot vs Student-t reference ---
@@ -981,6 +995,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
                      fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
+        save_figure("latent_space_price_decile_orig.png")
         plt.show()
     
     # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
@@ -1069,6 +1084,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout()
+        save_figure("latent_space_price.png")
         plt.show()
         
         # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
@@ -1101,6 +1117,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_figure("latent_space_price_hexbin.png")
         plt.show()
     
     # --- 7a-bis. Hexbin density plot for latent space (count only) ---
@@ -1128,6 +1145,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_figure("latent_space_density.png")
         plt.show()
 
     # --- 7b. Latent colored by SIZE (Square Footage) ---
@@ -1178,6 +1196,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.spines['right'].set_visible(False)
             
             plt.tight_layout(rect=[0, 0, 1, 0.95])
+            save_figure("latent_space_size.png")
             plt.show()
             
             # --- VERSION 2: Hexbin by size ---
@@ -1208,6 +1227,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
             ax.spines['right'].set_visible(False)
             
             plt.tight_layout(rect=[0, 0, 1, 0.95])
+            save_figure("latent_space_size_hexbin.png")
             plt.show()
         else:
             print("[Eval] Not enough valid size data for plot.")
@@ -1249,6 +1269,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         else:
             ax.legend(title="Building class (truncated)", fontsize=6, ncol=2)
         plt.tight_layout()
+        save_figure("latent_space_bldg_orig.png")
         plt.show()
         
         # --- Enhanced version: Aggregate to first letter (major category) ---
@@ -1332,6 +1353,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout(rect=[0, 0, 0.85, 0.95] if len(uniques) > 8 else [0, 0, 1, 0.95])
+        save_figure("latent_space_bldg.png")
         plt.show()
 
     # --- 7d. Marginal histograms ---
@@ -1350,6 +1372,7 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     
     fig.suptitle("Latent Marginal Distributions", fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
+    save_figure("latent_marginals.png")
     plt.show()
 
 print("[Eval] All visualizations completed.")
