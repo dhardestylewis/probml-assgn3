@@ -1017,6 +1017,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_title("QQ Plot", fontweight='bold')
         ax.set_xlim(-5, 5)
         ax.set_ylim(-5, 5)
+        ax.grid(False) # Strict removal
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         save_figure("residuals_qq.png")
         plt.show()
 
@@ -1076,7 +1079,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         ax.set_xlim(left=np.log(100_000))
         
-        ax.legend()
+        ax.legend(loc='upper right', framealpha=0.9)
+        ax.grid(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
@@ -1093,7 +1099,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             ax.plot([-10, 10], [-10, 10], color='gray', linestyle='--', alpha=0.5)
             ax.set_ylim(-10, 10) # FAIL-CLOSED RANGE
             ax.set_xlim(-10, 10) # FAIL-CLOSED RANGE
-            ax.grid(True, alpha=0.3)
+            ax.grid(False) # Strict removal
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
             plt.tight_layout()
             save_figure("residuals_standardized_qq.png")
             plt.show()
@@ -1130,6 +1138,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Range [0, 10]
         ax.set_ylim(0, 10)
         
+        ax.legend(loc='upper right', framealpha=0.9)
+        ax.grid(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
         plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Larger bottom margin for vertical ticks + footnote
         save_figure("residuals_absolute_vs_pred.png")
@@ -1147,8 +1160,12 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylabel("Density")
         ax.set_title("PIT Histogram", fontweight='bold')
         ax.text(0.5, 1.02, "Calibration Check", ha='center', va='bottom', transform=ax.transAxes, fontsize=10, color='gray')
+        ax.text(0.5, 1.02, "Calibration Check", ha='center', va='bottom', transform=ax.transAxes, fontsize=10, color='gray')
         ax.set_xlim(0, 1)
-        ax.legend()
+        ax.legend(loc='upper right', framealpha=0.9)
+        ax.grid(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         save_figure("residuals_pit_histogram.png")
         plt.show()
 
@@ -1222,8 +1239,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     
     plt.figtext(0.5, 0.01, r"Conditional Bias: $\mathbb{E}[r \mid \hat{y}]$ where $r = \log(y) - \log(\hat{y})$", ha="center", fontsize=9, fontstyle='italic')
 
-    ax.legend()
+    ax.legend(loc='upper right', framealpha=0.9)
     ax.grid(False) # Strict Grid Removal
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
     plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Margin for vertical ticks + footnote
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
