@@ -1611,7 +1611,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
                   # User requested "much smaller... objective size". Shrink=0.6 reduces effective height.
                   # aspect=20 makes it thinner (default is 20, but typically good).
-                  plt.colorbar(hb, ax=ax, label="Mean Residual", shrink=0.6, aspect=20, pad=0.04)
+                  cbar = plt.colorbar(hb, ax=ax, shrink=0.6, aspect=20, pad=0.04)
+                  cbar.set_label("Mean Residual", fontsize=10)
+                  cbar.solids.set_alpha(1.0)
+                  cbar.outline.set_visible(False)
+                  cbar.ax.tick_params(labelsize=9)
                   # Infer CRS based on coordinates
                   is_geo = False
                   if valid_geo[x_col].max() < 185 and valid_geo[x_col].min() > -185:
