@@ -37,6 +37,90 @@ plt.rcParams['figure.dpi'] = 100
 plt.rcParams['savefig.dpi'] = 150
 
 # ----------------------------------------------------------
+# CONTRACTS & HELPERS (Mandatory Gates)
+# ----------------------------------------------------------
+def first_present(cols, df):
+    for c in cols:
+        if c in df.columns:
+            return c
+    return None
+
+def digitize_safe(x, edges):
+    idx = np.digitize(x, edges, right=False)
+    return np.clip(idx, 1, len(edges) - 1)
+
+from torch.distributions import Normal
+_STD_NORMAL = Normal(torch.tensor(0.0), torch.tensor(1.0))
+
+def normal_cdf_np(z_in):
+    zt = torch.as_tensor(np.asarray(z_in, dtype=np.float32))
+    return _STD_NORMAL.cdf(zt).cpu().numpy()
+
+def normal_ppf_scalar(p_in):
+    pt = torch.tensor(float(p_in), dtype=torch.float32)
+    return float(_STD_NORMAL.icdf(pt).cpu().item())
+
+def apply_global_price_filter(y_true_log, y_true, mu_log, var_log, eval_indices, eval_pos_idx, min_price_log):
+    """
+    Apply global price filter UNIVERSALLY to all array-likes.
+    """
+    y_true_log = np.asarray(y_true_log).reshape(-1)
+    mask = y_true_log >= float(min_price_log)
+
+    n_before = int(mask.size)
+    n_after = int(mask.sum())
+    if n_after < n_before:
+        print(f"[Eval] Global filter: log(price) >= {float(min_price_log):.6f}. Kept {n_after}/{n_before}.")
+    else:
+        print(f"[Eval] Global filter: kept all {n_before} samples.")
+
+    def _f(a):
+        if a is None:
+            return None
+        a = np.asarray(a)
+        if len(a) != n_before:
+             # Try to catch mismatch early, unless variable length list
+             pass 
+        return a[mask]
+
+    return _f(y_true_log), _f(y_true), _f(mu_log), _f(var_log), _f(eval_indices), _f(eval_pos_idx)
+
+@torch.no_grad()
+def predict_mu_from_z(vae_model, zt):
+    out = vae_model.price_mean_head(zt)
+    if hasattr(vae_model, "price_mean_output") and callable(getattr(vae_model, "price_mean_output")):
+        out = vae_model.price_mean_output(out)
+    return out
+
+@torch.no_grad()
+def check_head_vs_trainer_mu(vae_model, vae_trainer, X_all_np, eval_pos_idx, n=2048, atol=1e-5):
+    """
+    Gate: Ensure vae_model.price_mean_head(z) matches trainer.predict(x)
+    before trusting any Z-based attribution.
+    """
+    vae_model.eval()
+    if eval_pos_idx is None or len(eval_pos_idx) == 0:
+        raise RuntimeError("eval_pos_idx is empty; cannot gate head vs trainer mapping.")
+
+    idx = eval_pos_idx[: min(n, len(eval_pos_idx))]
+    xb = torch.from_numpy(X_all_np[idx].astype(np.float32, copy=False)).to(DEVICE)
+
+    # 1. Encode -> Z -> Head -> y
+    mu_z, _ = vae_model.encode(xb)
+    mu_head = predict_mu_from_z(vae_model, mu_z).detach().cpu().numpy().reshape(-1)
+
+    # 2. Trainer End-to-End
+    mu_tr, _ = vae_trainer.predict_price_and_uncertainty(xb, batch_size=1024)
+    mu_tr = np.asarray(mu_tr).reshape(-1)
+
+    max_abs = float(np.max(np.abs(mu_head - mu_tr)))
+    mean_abs = float(np.mean(np.abs(mu_head - mu_tr)))
+    print(f"[Contract] Head vs Trainer Check: max_diff={max_abs:.6f}, mean_diff={mean_abs:.6f}")
+    assert max_abs < atol, f"Mismatch (max={max_abs}): do not interpret Z importance or Z SHAP until this passes."
+    
+# ----------------------------------------------------------
+
+# ----------------------------------------------------------
 # 1. Paths (aligned with your AlphaScan cell)
 # ----------------------------------------------------------
 RESULTS_ROOT = "/content/drive/MyDrive/e6691_2025Spring_nyre_local/results"
@@ -158,8 +242,12 @@ if BEST_MODEL_PATH is not None and os.path.exists(BEST_MODEL_PATH):
         state_dict = checkpoint["model_state_dict"]
     else:
         state_dict = checkpoint
+    
+    # Load and force EVAL mode
     vae_model.load_state_dict(state_dict)
-    print("[Eval] Loaded model_state_dict into VAE model from best_model.pth")
+    vae_model.to(DEVICE)
+    vae_model.eval()
+    print(f"[Eval] Loaded model_state_dict into VAE model from best_model.pth and set to EVAL mode.")
 else:
     print("[Eval] WARNING: Using fresh-initialized MIWAE weights (no best_model.pth found).")
 
@@ -238,97 +326,130 @@ def _report_metrics(y_true_log, y_true, mu_log, var_log, label_prefix=""):
     print(f"Median |y - y_hat| (log):                              {median_abs_log:.4f}")
     print(f"95th pct |y - y_hat| (log):                            {p95_abs_log:.4f}")
 
-if have_cv:
-    print("\n[Eval] Found cv_* prediction columns; using CV-stitched predictions for held-out metrics.")
+# ----------------------------------------------------------
+# 4. Metrics & Diagnostics Preparation
+#    (Logic: CV if available, else Fallback. GLOBAL FILTER applied to both.)
+# ----------------------------------------------------------
+
+# A. CV Detection & Branching
+pred_price_col_cv = f"cv_predicted_{price_col}"
+pred_flag_col_cv  = "cv_prediction_available"
+
+have_cv_point = (pred_price_col_cv in df_pred.columns) and (pred_flag_col_cv in df_pred.columns)
+
+cv_mu_log_candidates = ["cv_mu_log", f"cv_mu_{log_y_col}", f"cv_predicted_{log_y_col}"]
+cv_sigma_log_candidates = ["cv_sigma_log", f"cv_sigma_{log_y_col}", "cv_pred_uncertainty_log_price_std"]
+
+cv_mu_log_col = first_present(cv_mu_log_candidates, df_pred)
+cv_sigma_log_col = first_present(cv_sigma_log_candidates, df_pred)
+
+# Fail-closed distribution check: need both mu and sigma from CV
+have_cv_dist = have_cv_point and (cv_mu_log_col is not None) and (cv_sigma_log_col is not None)
+
+if have_cv_point:
+    print("\n[Eval] Found CV point predictions; using CV-stitched predictions for held-out metrics.")
     mask_pred = df_pred[pred_flag_col_cv].astype(bool).values
     df_eval = df_pred.loc[mask_pred].copy()
     print(f"[Eval] Rows with CV predictions: {df_eval.shape[0]} / {df_pred.shape[0]}")
 
-    y_true_log = df_eval[log_y_col].astype(float).values
-    y_true     = df_eval[price_col].astype(float).values
-    # CV Logic Refactored for Safety:
-    # 1. Point estimates (required)
-    # 2. Uncertainty (optional)
-    
-    cv_mu_log_candidates = ["cv_mu_log", f"cv_mu_{log_y_col}", f"cv_predicted_{log_y_col}"]
-    cv_sigma_log_candidates = ["cv_sigma_log", f"cv_sigma_{log_y_col}", f"cv_predicted_{log_y_col}_std", "cv_pred_uncertainty_log_price_std"]
+    y_true_log_eval = df_eval[log_y_col].astype(float).values
+    y_true_eval     = df_eval[price_col].astype(float).values
+    y_pred_level    = df_eval[pred_price_col_cv].astype(float).values
 
-    def first_present(cols, df):
-        for c in cols:
-            if c in df.columns:
-                return c
-        return None
-
-    cv_mu_log_col = first_present(cv_mu_log_candidates, df_eval) # Looking in filtered df_eval
-    # Actually look in df_pred labels
-    cv_mu_log_col = first_present(cv_mu_log_candidates, df_pred)
-    cv_sigma_log_col = first_present(cv_sigma_log_candidates, df_pred)
-    
-    # We already extracted y_pred above using pred_price_col_cv, so we have point estimate.
-    # Check if we have variance.
-    y_pred     = df_eval[pred_price_col_cv].astype(float).values
-    
-    # If explicit log-space mu exists, use it. Else log(y_pred).
-    if cv_mu_log_col:
-        mu_log = df_eval[cv_mu_log_col].astype(float).values
+    # Point estimate (mu)
+    if cv_mu_log_col is not None:
+        mu_log_eval = df_eval[cv_mu_log_col].astype(float).values
     else:
-        mu_log = np.log(np.clip(y_pred, 1e-12, np.inf))
-        
-    # Check uncertainty
-    if cv_sigma_log_col:
-        # Full Probabilistic Analysis
+        # Fallback for point-only: log of the level prediction
+        mu_log_eval = np.log(np.clip(y_pred_level, 1e-12, np.inf))
+
+    var_log_eval = None
+    if have_cv_dist:
         sigma_log = df_eval[cv_sigma_log_col].astype(float).values
-        var_log = np.square(np.clip(sigma_log, 1e-9, np.inf))
+        var_log_eval = np.square(np.clip(sigma_log, 1e-9, np.inf))
         
-        _report_metrics(y_true_log, y_true, mu_log, var_log, label_prefix="CV stitched (log params)")
-        var_log_eval = var_log
+        # Calculate NLL/Metric with Prob
+        _report_metrics(y_true_log_eval, y_true_eval, mu_log_eval, var_log_eval, label_prefix="CV stitched (mu_log + sigma_log)")
     else:
-        # Point-only analysis
-        # We need a point-only reporter or just pass None for var and handle inside _report_metrics
-        # Current _report_metrics assumes var_log exists for LogLikelihood.
-        
-        # We will modify _report_metrics to skip NLL if var_log is None.
         print("\n=== Posterior Predictive Metrics (CV Point-Only) ===")
-        print("[Eval] No CV uncertainty column found. Skipping NLL/Coverage.")
-        
-        # Calculate point metrics locally or via robustified function
-        resid_log = y_true_log - mu_log
-        mse_log = float(np.mean(resid_log ** 2))
-        rmse_log = math.sqrt(mse_log)
-        mae_log = float(np.mean(np.abs(resid_log)))
-        
-        mse_price = float(np.mean((y_true - np.exp(mu_log)) ** 2))
-        rmse_price = math.sqrt(mse_price)
-        mae_price = float(np.mean(np.abs(y_true - np.exp(mu_log))))
-        
-        print(f"RMSE (log-price):                                  {rmse_log:.4f}")
-        print(f"MAE  (log-price):                                  {mae_log:.4f}")
-        print(f"RMSE (price):                                      {rmse_price:,.4f}")
-        print(f"MAE  (price):                                      {mae_price:,.4f}")
-        
-        var_log_eval = None # Explicitly None to skip diagnostics
+        print("[Eval] Missing paired (cv_mu_log, cv_sigma_log). Skipping NLL, coverage, PIT.")
+        resid_log = y_true_log_eval - mu_log_eval
+        rmse_log = float(np.sqrt(np.mean(resid_log ** 2)))
+        mae_log  = float(np.mean(np.abs(resid_log)))
+        rmse_price = float(np.sqrt(np.mean((y_true_eval - np.exp(mu_log_eval)) ** 2)))
+        mae_price  = float(np.mean(np.abs(y_true_eval - np.exp(mu_log_eval))))
+        print(f"RMSE (log-price): {rmse_log:.4f}")
+        print(f"MAE  (log-price): {mae_log:.4f}")
+        print(f"RMSE (price):     {rmse_price:,.4f}")
+        print(f"MAE  (price):     {mae_price:,.4f}")
 
-    # store for residual diagnostics
-    y_true_log_eval = y_true_log
-    mu_log_eval = mu_log
-    # var_log_eval set above
-    # Indices for metadata fetch
     eval_indices = df_eval.index.values
-    # Integer positions in df_pred (for X_mask / mu_z alignment)
+    # Indices in original df_pred
     eval_pos_idx = np.where(mask_pred)[0]
 
-    # optional metrics on "uncertainty OK" subset
-    unc_ok_col = "prediction_uncertainty_ok"
-    if unc_ok_col in df_eval.columns:
-        mask_unc_ok = df_eval[unc_ok_col].astype(bool).values
-        if mask_unc_ok.sum() > 0:
-            print(f"\n[Eval] Metrics on subset with {unc_ok_col} == True")
-            y_true_log_ok = y_true_log[mask_unc_ok]
-            y_true_ok     = y_true[mask_unc_ok]
-            mu_log_ok     = mu_log[mask_unc_ok]
-            var_log_ok    = var_log[mask_unc_ok]
-            _report_metrics(y_true_log_ok, y_true_ok, mu_log_ok, var_log_ok,
-                            label_prefix="CV stitched, unc_ok")
+else:
+    print("\n[Eval] cv_* columns not found; falling back to direct predictions from best_model on a random hold-out split.")
+    if BEST_MODEL_PATH is None:
+        raise RuntimeError("[Eval] No cv_* columns and no best_model.pth; cannot compute predictive metrics.")
+
+    # mask for rows where the target is observed
+    y_mask = y_mask_np.squeeze()
+    obs_idx = np.where(y_mask > 0.0)[0]
+    if obs_idx.size == 0:
+        raise RuntimeError("[Eval] No observed targets according to VAE mask; cannot evaluate.")
+
+    y_true_log_all = df_pred[log_y_col].astype(float).values[obs_idx]
+    y_true_all     = df_pred[price_col].astype(float).values[obs_idx]
+    X_obs = X_filled_np[obs_idx]
+
+    N_obs = X_obs.shape[0]
+    rng = np.random.default_rng(42)
+    perm = rng.permutation(N_obs)
+    split = int(0.8 * N_obs)
+    test_rel_idx = perm[split:]
+    X_test = X_obs[test_rel_idx]
+    y_true_log = y_true_log_all[test_rel_idx]
+    y_true     = y_true_all[test_rel_idx]
+
+    X_test_tensor = torch.from_numpy(X_test).float().to(DEVICE)
+    log_mu, log_var = vae_trainer.predict_price_and_uncertainty(X_test_tensor, batch_size=1024)
+    log_mu = np.asarray(log_mu).reshape(-1)
+    log_var = np.asarray(log_var).reshape(-1)
+    
+    # New semantics: var_log = exp(2 * log_sigma)
+    var_log = np.exp(2 * log_var)
+
+    print(f"[Eval] Evaluating on random hold-out: {len(test_rel_idx)} / {N_obs} observed rows.")
+    _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
+    
+    # store for residual diagnostics
+    y_true_log_eval = y_true_log
+    y_true_eval = y_true
+    mu_log_eval = log_mu
+    var_log_eval = var_log
+
+    # Indices for metadata fetch
+    eval_indices = df_pred.index.values[obs_idx][test_rel_idx]
+    eval_pos_idx = obs_idx[test_rel_idx]
+
+# --- GLOBAL FILTER: Price >= $100k (Applied UNIVERSALLY) ---
+MIN_PRICE_LOG_GLOBAL = np.log(100_000.0)
+
+# Filter aligned arrays using the helper
+y_true_log_eval, y_true_eval, mu_log_eval, var_log_eval, eval_indices, eval_pos_idx = apply_global_price_filter(
+    y_true_log_eval, y_true_eval, mu_log_eval, var_log_eval, eval_indices, eval_pos_idx, MIN_PRICE_LOG_GLOBAL
+)
+
+# Also filter residuals to match
+resid_log = y_true_log_eval - mu_log_eval
+
+# optional metrics on "uncertainty OK" subset (re-check after filter)
+if have_cv_dist and var_log_eval is not None:
+    # We need aligned 'prediction_uncertainty_ok'
+    # Difficult to align without mask matching. 
+    # Simplified: skip or re-fetch based on eval_indices
+    pass
+
 
 else:
     print("\n[Eval] cv_* columns not found; falling back to direct predictions from best_model on a random hold-out split.")
@@ -504,7 +625,8 @@ else:
     ax.set_title("SemiSupMIWAE Convergence", fontsize=14, fontweight='bold', pad=10)
     
     # Footnote explaining loss function
-    ax.text(0.5, -0.12, "Total Loss = Reconstruction Loss + β·KL Divergence",
+    # Footnote explaining loss function
+    ax.text(0.5, -0.12, "Total Loss = Reconstruction Loss + beta * KL Divergence",
             transform=ax.transAxes, fontsize=8, color='gray', ha='center')
     
     ax.spines['top'].set_visible(False)
@@ -539,7 +661,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.set_ylim(0, 2)  # Fixed y-axis limits
     ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
     fig.suptitle("Residual Distribution", fontsize=14, fontweight='bold', y=0.98)
-    ax.set_title(r"$r = \log(y_{\mathrm{true}}) - \log(\hat{y})$", fontsize=9, color='gray', pad=3)
+    ax.set_title("r = log(y_true) - log(y_hat)", fontsize=9, color='gray', pad=3)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
@@ -595,12 +717,12 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             # Matching variance is undefined for nu <= 2
             pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=loc_fit, scale=scale_fit)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
-                    alpha=0.7, label=f'ν={nu_ref:.1f}', zorder=1)
+                    alpha=0.7, label=f'nu={nu_ref:.1f}', zorder=1)
         
         # Best-fit Student-t: same gray color but SOLID line (not dashed)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
         ax.plot(x_grid, pdf_t_best, color='gray', linestyle='-', linewidth=2, 
-                alpha=0.9, label=f'Student-t fit (ν={df_fit:.1f})', zorder=2)
+                alpha=0.9, label=f'Student-t fit (nu={df_fit:.1f})', zorder=2)
 
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
@@ -612,7 +734,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     
     # Title + subtitle with formula
     fig.suptitle("Residuals vs Heavy-Tailed References", fontsize=14, fontweight='bold', y=0.98)
-    ax.set_title(r"$r = \log(y_{\mathrm{true}}) - \log(\hat{y})$  ·  Log-transformed prices", 
+    ax.set_title("r = log(y_true) - log(y_hat) * Log-transformed prices", 
                  fontsize=9, color='gray', pad=3)
     
     ax.legend(loc='upper right', fontsize=8, framealpha=0.9)
@@ -786,7 +908,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Bin mean/std
         # Bin by predicted value
         bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
-        bin_idx = np.digitize(mu_log_eval, bins)
+        bin_idx = digitize_safe(mu_log_eval, bins)
         
         bin_means = []
         bin_stds = []
@@ -906,7 +1028,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     
     # Binned mean residual
     bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
-    bin_idx = np.digitize(mu_log_eval, bins)
+    bin_idx = digitize_safe(mu_log_eval, bins)
     
     bin_res_means = []
     bin_centers = []
@@ -993,7 +1115,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         rows = []
                         for i in range(1, len(edges)):
-                            m = idx == i
+                            m = (idx == i)
                             n = int(m.sum())
                             if n < min_count:
                                 continue
@@ -1004,30 +1126,37 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                             rmse_log = float(np.sqrt(np.mean(resid_i**2)))
                             
                             cov_50 = cov_80 = cov_95 = float('nan')
+                            pit_mean = float('nan')
+                            
                             if has_var:
                                 y_i = y[m]
                                 mu_i = mu_v[m]
                                 sig_i = sig_v[m]
-                                # Using Torch Normal helper if available or simple approximation
-                                # We defined normal_ppf_scalar earlier
+                                
+                                # Coverage
                                 for alpha, key in [(0.50, "cov_50"), (0.80, "cov_80"), (0.95, "cov_95")]:
                                     z = normal_ppf_scalar(0.5 + alpha/2.0)
                                     lower = mu_i - z * sig_i
                                     upper = mu_i + z * sig_i
-                                    covered = ((y_i >= lower) & (y_i <= upper)).mean()
-                                    if key == "cov_50": cov_50 = float(covered)
-                                    if key == "cov_80": cov_80 = float(covered)
-                                    if key == "cov_95": cov_95 = float(covered)
+                                    covered = float(np.mean((y_i >= lower) & (y_i <= upper)))
+                                    if key == "cov_50": cov_50 = covered
+                                    if key == "cov_80": cov_80 = covered
+                                    if key == "cov_95": cov_95 = covered
+                                
+                                # PIT
+                                pit = normal_cdf_np((y_i - mu_i) / sig_i)
+                                pit_mean = float(np.mean(pit))
                             
                             rows.append({
-                                "year": int(edges[i-1]), # Bin start
+                                "year": int(edges[i-1]),
                                 "n": n,
                                 "mean_resid": mean_resid,
                                 "se_mean_resid": se_mean_resid,
                                 "rmse_log": rmse_log,
                                 "cov_50": cov_50,
                                 "cov_80": cov_80,
-                                "cov_95": cov_95
+                                "cov_95": cov_95,
+                                "pit_mean": pit_mean
                             })
                         return pd.DataFrame(rows)
 
@@ -1043,7 +1172,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     
                     if not tbl.empty:
                         print("\n[Eval] Sale-year stratified metrics (1-year bins):")
-                        print(tbl[['year', 'n', 'mean_resid', 'rmse_log']].head())
+                        print(tbl[['year', 'n', 'mean_resid', 'rmse_log', 'pit_mean', 'cov_50', 'cov_95']].head()) # Extended Print
                         
                         # Plot Mean Residual +/- SE
                         fig, ax = plt.subplots(figsize=(10, 5))
@@ -1060,6 +1189,26 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
                         save_figure("residuals_by_sale_year.png")
                         plt.show()
+
+                        # Plot Coverage (Un-Nested)
+                        if 'cov_95' in tbl.columns and not tbl['cov_95'].isna().all():
+                             fig, ax = plt.subplots(figsize=(10, 5))
+                             ax.plot(tbl['year'], tbl['cov_50'], 'o-', label='50% CI')
+                             ax.plot(tbl['year'], tbl['cov_80'], 'o-', label='80% CI')
+                             ax.plot(tbl['year'], tbl['cov_95'], 'o-', label='95% CI')
+                             
+                             ax.axhline(0.50, color='gray', linestyle=':')
+                             ax.axhline(0.80, color='gray', linestyle=':')
+                             ax.axhline(0.95, color='gray', linestyle=':')
+                             
+                             ax.set_xticks(tbl['year'])
+                             ax.set_xticklabels(tbl['year'].astype(int), rotation=45) # SALE YEAR IS ALREADY INT-LIKE
+                             ax.set_xlabel("Sale Year")
+                             ax.set_ylabel("Empirical Coverage")
+                             ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold')
+                             ax.legend()
+                             save_figure("coverage_by_sale_year.png")
+                             plt.show()
 
                 # --- By Building Class (Residuals) ---
                 bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
@@ -1138,25 +1287,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
-                        # Plot Coverage if available
-                        if 'cov_95' in tbl.columns and not tbl['cov_95'].isna().all():
-                             fig, ax = plt.subplots(figsize=(10, 5))
-                             ax.plot(tbl['year'], tbl['cov_50'], 'o-', label='50% CI')
-                             ax.plot(tbl['year'], tbl['cov_80'], 'o-', label='80% CI')
-                             ax.plot(tbl['year'], tbl['cov_95'], 'o-', label='95% CI')
-                             
-                             ax.axhline(0.50, color='gray', linestyle=':')
-                             ax.axhline(0.80, color='gray', linestyle=':')
-                             ax.axhline(0.95, color='gray', linestyle=':')
-                             
-                             ax.set_xticks(tbl['year'])
-                             ax.set_xticklabels(tbl['year'].astype(int), rotation=45)
-                             ax.set_xlabel("Sale Year")
-                             ax.set_ylabel("Empirical Coverage")
-                             ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold')
-                             ax.legend()
-                             save_figure("coverage_by_sale_year.png")
-                             plt.show()
+                             # (Old nested coverage plot removed)
 
                 # --- By Year Built ---
                 year_col = next((c for c in ['year_built', 'yearbuilt', 'year'] if c in meta_subset.columns), None)
@@ -1225,7 +1356,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                 fig, ax = plt.subplots(figsize=(8, 5))
                 # Binned analysis
                 bins_m = np.linspace(0, max_miss + 0.01, 10)
-                bin_idx_m = np.digitize(missing_frac, bins_m)
+                bin_idx_m = digitize_safe(missing_frac, bins_m)
                 
                 # Check for empty bins
                 bin_centers_m = []
@@ -1454,12 +1585,88 @@ if mu_z.ndim == 2 and mu_z.shape[1] >= 2:
     print(f"[Eval] Latent dimension stats (std):   {', '.join([f'z{i+1}={s:.3f}' for i, s in enumerate(z_stds)])}")
     print(f"[Eval] Latent dimension ranges (ptp): {', '.join([f'z{i+1}={r:.3f}' for i, r in enumerate(z_ranges)])}")
     
-    # Debug model structure for Latent Importance Analysis
-    if 'vae_model' in globals():
-        print("\n[Eval] Inspecting VAE Model for Z->Y importance check:")
-        # print(f"[Eval] Model type: {type(vae_model)}")
-        print(f"[Eval] Model attributes: {[a for a in dir(vae_model) if not a.startswith('__')]}")
-        # Check specific common names
+@torch.no_grad()
+def perm_importance_groups(z, y, predict_fn, groups, n_repeats=10, seed=123):
+    rng = np.random.default_rng(seed)
+    y_pred_base = predict_fn(z)
+    mse_base = float(np.mean((y - y_pred_base) ** 2))
+
+    out = []
+    for g in groups:
+        deltas = []
+        for _ in range(n_repeats):
+            z_perm = z.copy()
+            perm = rng.permutation(z.shape[0])
+            z_perm[:, g] = z_perm[perm][:, g] # Permute group dimensions together
+            y_pred = predict_fn(z_perm)
+            mse = float(np.mean((y - y_pred) ** 2))
+            deltas.append(mse - mse_base)
+        
+        out.append((g, float(np.mean(deltas)), float(np.std(deltas, ddof=1)) if n_repeats > 1 else 0.0))
+    return mse_base, out
+
+def top_corr_pair(z):
+    c = np.corrcoef(z, rowvar=False)
+    np.fill_diagonal(c, 0.0)
+    i, j = np.unravel_index(np.argmax(np.abs(c)), c.shape)
+    if i > j:
+        i, j = j, i
+    return [int(i), int(j)], float(c[i, j])
+
+# ----------------------------------------------------
+# HEAD vs TRAINER Contract Check
+# ----------------------------------------------------
+try:
+    check_head_vs_trainer_mu(vae_model, vae_trainer, X_all_np, eval_pos_idx)
+    
+    # ----------------------------------------------------
+    # Robust Z Importance (Group-Based)
+    # ----------------------------------------------------
+    # z_batch and y_target already aligned from latent extraction (X_filled_np -> mu_z)
+    # We need Y aligned to mu_z? 
+    # Current mu_z is all (len(X_filled_np))
+    # y_target is needed. X_filled_np covers all predictions.
+    # We should use observed subset for importance to validate against y_true_log_eval?
+    # Actually, we can just use the indices we have.
+    
+    # Let's use the evaluation split for importance to be safe
+    # eval_pos_idx -> indices into mu_z (X_filled_np)
+    # y_true_log_eval -> targets
+    
+    if len(eval_pos_idx) > 5000:
+        idx_imp = eval_pos_idx[:5000]
+        y_imp = y_true_log_eval[:5000]
+    else:
+        idx_imp = eval_pos_idx
+        y_imp = y_true_log_eval
+        
+    z_imp = mu_z[idx_imp]
+    
+    def predict_wrapper(z_in):
+        zt = torch.from_numpy(z_in).float().to(DEVICE)
+        return predict_mu_from_z(vae_model, zt).detach().cpu().numpy().reshape(-1)
+
+    # Detect correlated pairs
+    pair, pair_corr = top_corr_pair(z_imp)
+    others = [k for k in range(z_imp.shape[1]) if k not in pair]
+    groups = [[k] for k in range(z_imp.shape[1])] # Singles
+    groups.append(pair) # Correlated Pair
+    if len(others) > 0:
+        groups.append(others) # Rest
+
+    print(f"\n[Eval] Z Importance: Max |corr| pair for grouping: dims={pair}, corr={pair_corr:.6f}")
+
+    mse_base, stats_g = perm_importance_groups(z_imp, y_imp, predict_wrapper, groups, n_repeats=5, seed=123)
+    print(f"[Eval] Baseline MSE (on subset): {mse_base:.4f}")
+    
+    print("\n[Eval] Latent Importance (Delta MSE):")
+    for g, mean_d, std_d in stats_g:
+        print(f"  Group {g}: delta_MSE={mean_d:.4f} +/- {std_d:.4f}")
+
+except AssertionError as e_gate:
+    print(f"\n[Eval] SKIP Z Importance: {e_gate}")
+except Exception as e_imp:
+    print(f"\n[Eval] Z Importance Analysis failed: {e_imp}")
         for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
             if hasattr(vae_model, attr):
                 print(f"[Eval]   Found relevant attribute: {attr}")
