@@ -6,6 +6,18 @@
 - [ ] Review new GUIDELINES.md Section 0 (Version Control Safety) [Added: 2025-12-11 23:16]
 - [x] Add `(UNREVIEWED) [Added: timestamp]` tags to GUIDELINES.md Sections 1-7 and all subsections [Added: 2025-12-11 23:21] [Completed: 2025-12-11 23:27]
 
+### P1 - Poster and Report Revisions [Added: 2025-12-23 15:40]
+- [ ] Reposition QQ plot to top-right in 2x2 grid (spatial left, residuals vs refs bottom-right) [Added: 2025-12-23 15:40]
+- [ ] Fix latent labeling: change z0/z1 to z3/z1 (by variance 49.9%, 30.2%) [Added: 2025-12-23 15:40]
+- [ ] Remove/revise "Value/Size factor" - SHAP: Recent Trend 26%, Bldg Sales Vol 19% [Added: 2025-12-23 15:40]
+- [ ] Change "clusters separate" to "identifiable striations by building class" [Added: 2025-12-23 15:40]
+- [ ] Verify metrics: Poster -1.15 vs Logs -2.2757 [Added: 2025-12-23 15:40]
+- [x] Create logs/ directory and timestamped log file [Completed: 2025-12-23 15:48]
+- [ ] Enlarge Columbia logos and add clickable links [Added: 2025-12-23 15:40]
+- [ ] Link STCS 6701 to course webpage, Prof. Blei to profile [Added: 2025-12-23 15:40]
+- [x] Link author name to Google Scholar [Completed: 2025-12-23 15:57]
+- [ ] Copy hw3-SUBMITTED.tex to report.tex with corrected metrics [Added: 2025-12-23 15:40]
+
 ### P1 - Poster Finalization (UNREVIEWED) [Added: 2025-12-21 21:40]
 - [ ] "get rid of this 'Visualizing Residuals' plot and instaed begin planning in a single more involved outlined TODO how to revise the existing plot to include some of these same reference Student T kurosis lines for reference against ourr own dataset"
     -   **Detailed Plan**: Revise `miwae_residuals_histogram.png` generation code:
@@ -98,3 +110,14 @@
 
 ### P3 - Polish & Cleanup
 *(No active tasks)*
+
+- [ ] **Poster Verification (High Priority)**
+    - [ ] Run code/post_training_eval.py to generate 
+esiduals_standardized_qq.png (using updated 
+esiduals_standardized_qq logic).
+    - [ ] Verify exact Kurtosis value (was 9.27?) and R^2 (was 0.27?).
+    - [ ] Update hws/hw3.d/poster.tex with:
+        - New 
+esiduals_standardized_qq.png (replaces 
+esiduals_qq_simple.png).
+        - Verified numbers for Kurtosis and R^2.

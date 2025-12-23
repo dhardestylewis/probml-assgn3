@@ -660,3 +660,39 @@ At the end of each substantive answer, include a short meta-calibration block wi
 ### 164. [2025-12-22 21:05] Convert Binned to LOESS
 **User Prompt:**
 > revise your other plots still using bins have been converted to LOESS
+
+### 165. [2025-12-23 15:40] Poster Layout, Content, and Branding Revisions
+**User Prompt:**
+> the QQ plot should be placed in the top right corner from grid formed by the spatial redsidual map on the left and the residuals vs references plot on the bottom right. the loss curve was fine where it was. take a step back and consider the overall message and second order messages we wish to convey. does this poster accomplish that? are those the first thing we say? you will need to examine all the images beforehand to determine whether that is the case. after examining the images determine whether or not the existing words even correspond correctly with the images. For example Value/Size factor does not correspond with the depicted latents. we dont specify anywhere the depicted latents gradients internal namings of zo, z1. we should be very clear we only depict the top two latents by sensitivity/variance against the taget (please refer to the code to state that carefully). i dont see clusters separating by building classes. i do see identifiable regions or even striations by building class. likewise for price bands. identify exactly where geographic bias is concentrated. are the reported metric values consistent with the most recent numbers? place the logs below in a timestamped file in its own proper directory. when i hand new such logs going forward compare against most recent then decide to timestamp and file
+>
+> have the variables in the equations been sufficiently defined for this audience? who is this audience?
+>
+> both columbia university and columbia engineering must be made larger. sample the color from those logos to determine the color for th rest. ensure my email address is clickable, that STCS 6701 etc leads to the course webapge, that professor blei is written Prof. David Blei and links out to his profile. that my name links out to my google scholar profile.
+>
+> copy the hw3 into a new file named report and anything inaccurate or not up to date in there revise simultaneously against these images and logs.
+
+### 166. [2025-12-23 15:41] Log and Documentation Process
+**User Prompt:**
+> ensure everything just written is place in appropriate order within the LOGS TODOs and GUIDELINES as appropriate timestamped
+
+### 167. [2025-12-23 15:41] Continue
+**User Prompt:**
+> and then continue
+
+### 168. [2025-12-23 15:45] Google Scholar and URL Verification
+**User Prompt:**
+> search me up: Daniel Hardesty Lewis
+>
+> you are to use your visual inspection of the images to determine that. if not possible inform me so i can provide a separate visual inspection of every image for you to store alongside the images
+>
+> check the url to confirm and the contents of that webpage. i should be specific to fall 2025 (2025f)
+>
+> confirm blei's webpage
+
+### 169. [2025-12-23 15:46] Continue with Implementation
+**User Prompt:**
+> do all that then continue with implementation plan, task, then TODO in that order
+
+### 170. [2025-12-23 15:57] Google Scholar URL
+**User Prompt:**
+> https://scholar.google.com/citations?user=agBdssgAAAAJ&hl=en

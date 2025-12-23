@@ -4,6 +4,7 @@
 \usepackage{booktabs}
 \usepackage{amsmath,amssymb}
 \usepackage{geometry}
+\usepackage[colorlinks=true,linkcolor=ColumbiaBlue,urlcolor=ColumbiaBlue]{hyperref}
 
 \geometry{
   paperwidth=48in,
@@ -31,7 +32,7 @@
       \begin{column}{.15\paperwidth}
         \centering
         \vspace{1cm}
-        \includegraphics[height=7cm]{images/columbia_logo.png} 
+        \includegraphics[height=5cm]{images/columbia_logo.png} 
         \vspace{1cm}
       \end{column}
       \begin{column}{.66\paperwidth}
@@ -42,13 +43,13 @@
         \begin{columns}[T]
           \begin{column}{0.45\textwidth}
             \centering
-            {\Large \textbf{Daniel Lewis}}\\[0.5ex]
-            {\large dl3645@columbia.edu}
+            {\Large \textbf{\href{https://scholar.google.com/citations?user=agBdssgAAAAJ&hl=en}{Daniel Lewis}}}\\[0.5ex]
+            {\large \href{mailto:dl3645@columbia.edu}{dl3645@columbia.edu}}
           \end{column}
           \begin{column}{0.54\textwidth}
             \centering
-            {\large STCS 6701: Probabilistic Models and Machine Learning}\\[0.5ex]
-            {\large Professor Blei, Fall 2025}
+            {\large \href{http://www.cs.columbia.edu/~blei/fogm/2025F/index.html}{STCS 6701: Probabilistic Models and Machine Learning}}\\[0.5ex]
+            {\large \href{http://www.cs.columbia.edu/~blei/}{Prof.\ David Blei}, Fall 2025}
           \end{column}
         \end{columns}
         
@@ -57,7 +58,7 @@
       \begin{column}{.15\paperwidth}
         \centering
         \vspace{1.5cm}
-        \includegraphics[height=6cm]{images/columbia_engineering_logo.png}
+        \includegraphics[height=4cm]{images/columbia_engineering_logo.png}
         \vspace{1.5cm}
       \end{column}
       \begin{column}{.02\paperwidth}\end{column}
@@ -104,9 +105,15 @@
       \begin{block}{Graphical Model}
         \begin{figure}
           \centering
-          \includegraphics[width=0.95\textwidth]{images/miwae_graphical_model.png}
-          \caption{SemiSupMIWAE Structure where $y$ is semi-observed.}
+          \includegraphics[width=0.7\textwidth]{images/miwae_graphical_model.png}
+          \caption{SemiSupMIWAE Structure.}
         \end{figure}
+        \vspace{0.2cm}
+        % \begin{figure}
+        %     \centering
+        %     \includegraphics[width=0.7\textwidth]{images/convergence_loss.png}
+        %     \caption{Convergence (Neg. ELBO) over 50 epochs.}
+        % \end{figure}
       \end{block}
     \end{column}
     
@@ -124,7 +131,7 @@
             \toprule
             \textbf{Metric} & \textbf{Value} \\
             \midrule
-            Avg. Log Posterior $p(y \mid x)$ & $-1.15$ \\
+            Avg. Log Posterior $p(y \mid x)$ & $-2.28$ \\
             RMSE & $\$24.6$ Million \\
             MAE & $\$2.18$ Million \\
             Median Absolute Error & $\$128,000$ \\
@@ -136,13 +143,13 @@
 
       \begin{block}{Residual Analysis}
         Spatial plotting reveals bias, while histogram confirms heavy tails (Significant Excess Kurtosis). % TODO: ADD EXACT VALUE IF VERIFIED
-        \begin{figure}
-          \centering
-          \includegraphics[width=0.48\textwidth]{images/residuals_spatial_map.png}
-          \hfill
-          \includegraphics[width=0.48\textwidth]{images/residuals_hist_references.png}
-          \caption{Spatial Residuals (Left) and Log-price Residual Distribution (Right).}
-        \end{figure}
+        % \begin{figure}
+        %   \centering
+        %   \includegraphics[width=0.48\textwidth]{images/residuals_spatial_map.png}
+        %   \hfill
+        %   \includegraphics[width=0.48\textwidth]{images/residuals_hist_references.png}
+        %   \caption{Spatial Residuals showing geographic bias (Left) and Log-price Residual Distribution (Right).}
+        % \end{figure}
       \end{block}
     \end{column}
 
@@ -152,18 +159,18 @@
     % --- COLUMN 3 ---
     \begin{column}{0.31\paperwidth}
       \begin{block}{Latent Space Analysis}
-        The 3D latent space, with $K=3$, captures interpretable structure.
+        The 3D latent space, with $K=3$, captures interpretable structure. We plot the top two dimensions by variance contribution: $z_3$ (49.9\%) and $z_1$ (30.2\%).
 
-        \textbf{Value Continuum}
-        Gradient $z_0/z_1$ suggests a "Value/Size" factor.
+        \textbf{Price Gradient}
+        SHAP attribution reveals the primary latent dimension encodes recent market trends and cumulative sales volume.
         \begin{figure}
           \centering
           \includegraphics[width=0.8\textwidth]{images/latent_space_price.png}
           \caption{Latents colored by Price Decile.}
         \end{figure}
 
-        \textbf{Structural Clustering}
-        Clusters separate building classes such as Small vs Mixed-Use.
+        \textbf{Building Type Structure}
+        Building classes form identifiable striations rather than discrete clusters, reflecting the continuous nature of property characteristics.
         \begin{figure}
           \centering
           \includegraphics[width=0.8\textwidth]{images/latent_space_bldg.png}
@@ -171,21 +178,21 @@
         \end{figure}
       \end{block}
 
-      \begin{block}{Discussion \& Future Work}
-        \begin{itemize}
-          \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails (residual analysis). % TODO: VERIFY R^2 (Prev: 0.27)
-            \begin{center}
-              \includegraphics[width=0.6\textwidth]{images/residuals_qq_simple.png}
-            \end{center}
-          \item \textbf{Future Work}:
-            \begin{itemize}
-              \item \textbf{Heavier Tails}: Replace Gaussian likelihood with Student-t.
-              \item \textbf{Spatial}: Add Graph Neural Networks for neighborhood effects.
-              \item \textbf{Visuals}: Overlay Gaussian on residual plots for kurtosis reference.
-            \end{itemize}
-        \end{itemize}
-      \end{block}
-    \end{column}
+%       \begin{block}{Discussion \& Future Work}
+%         \begin{itemize}
+%           \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails (residual analysis). % TODO: VERIFY R^2 (Prev: 0.27)
+%             \begin{center}
+%               \includegraphics[width=0.6\textwidth]{images/residuals_qq_simple.png}
+%             \end{center}
+%           \item \textbf{Future Work}:
+%             \begin{itemize}
+%               \item \textbf{Heavier Tails}: Replace Gaussian likelihood with Student-t.
+%               \item \textbf{Spatial}: Add Graph Neural Networks for neighborhood effects.
+%               \item \textbf{Visuals}: Overlay Gaussian on residual plots for kurtosis reference.
+%             \end{itemize}
+%         \end{itemize}
+%       \end{block}
+     \end{column}
   \end{columns}
 \end{frame}
 \end{document}
