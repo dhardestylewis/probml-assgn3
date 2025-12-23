@@ -1179,7 +1179,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         y_std_interp = np.interp(x_smooth, x_sorted, np.nan_to_num(y_std_smooth, nan=0.5))
         
         # Plot LOESS line
-        ax.plot(x_smooth, y_smooth, 'r-', linewidth=2, label='LOESS Fit')
+        ax.plot(x_smooth, y_smooth, 'r-', linewidth=2, label='LOESS Trend')
         
         # Plot ±1σ shaded band
         ax.fill_between(x_smooth, y_smooth - y_std_interp, y_smooth + y_std_interp,
