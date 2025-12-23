@@ -1863,19 +1863,50 @@ if mask_valid_price.sum() > 100:
     price_shuffled = valid_log_price[shuffle_idx]
     
     # Scatter with continuous log-price coloring
-    # Using 'viridis' - perceptually uniform, colorblind-friendly, dark→bright = low→high
-    # Cap vmax at $250M as per user request (consistent with domain)
-    vmax_cap = np.log(250_000_000)
-    
-    sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
-                    c=price_shuffled, s=8, alpha=0.5, cmap='viridis',
-                    edgecolors='none', zorder=2, vmax=vmax_cap)  # Cap color mapping
+    # Calculate density-based alpha for points
+    # Use 2D histogram to get density count for each point
+    try:
+        H, xedges, yedges = np.histogram2d(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], bins=50)
+        # Interpolate/Lookup counts
+        x_idxs = np.clip(np.searchsorted(xedges, z_shuffled[:, plot_dim1]) - 1, 0, 49)
+        y_idxs = np.clip(np.searchsorted(yedges, z_shuffled[:, plot_dim2]) - 1, 0, 49)
+        point_counts = H[x_idxs, y_idxs]
+        
+        # Map counts to alpha [0.2, 0.9]
+        # Log scale mapping
+        log_counts = np.log1p(point_counts)
+        alpha_per_point = 0.2 + 0.7 * (log_counts - log_counts.min()) / (log_counts.max() - log_counts.min() + 1e-6)
+        
+        # We need to set alpha via facecolors/edgecolors since 'alpha' kwarg doesn't take array in simple scatter
+        # But we also have 'c' mapped to colormap.
+        # We can create the RGBA array manually.
+        from matplotlib import cm
+        norm = plt.Normalize(vmin=vmin, vmax=vmax_cap)
+        cmap = plt.cm.get_cmap('viridis')
+        colors_rgba = cmap(norm(price_shuffled))
+        colors_rgba[:, 3] = alpha_per_point  # Set alpha channel
+        
+        sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
+                        c=colors_rgba, s=8,
+                        edgecolors='none', zorder=2)
+    except Exception as e_alpha:
+        print(f"[Eval] Could not compute variable alpha: {e_alpha}. Using constant.")
+        sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
+                        c=price_shuffled, s=8, alpha=0.5, cmap='viridis',
+                        edgecolors='none', zorder=2, vmax=vmax_cap)
     
     # Add Graded Density Contours Overlay
     add_graded_density_contours(ax, z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], x_lim_fixed, y_lim_fixed)
     
-    cbar = plt.colorbar(sc, ax=ax, extend='max') # Show arrow for values > $250M
+    # Create explicit ScalarMappable for colorbar to ensure it represents Price (opaque)
+    # independent of point transparency
+    sm = plt.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=vmin, vmax=vmax_cap))
+    sm.set_array([])
+    
+    cbar = plt.colorbar(sm, ax=ax, extend='max') # Show arrow for values > $250M
     cbar.set_label("Sale Price", fontsize=10)
+    # Ensure colorbar is opaque
+    cbar.solids.set_alpha(1.0)
     
     # Log-scale tick labels
     vmin, vmax = valid_log_price.min(), vmax_cap
@@ -1954,40 +1985,41 @@ if mask_valid_price.sum() > 100:
                     gridsize=40, cmap='viridis', mincnt=1, linewidths=0.2, vmax=vmax_cap)
     
     # Calculate transparency based on density - SCALED LOGARITHMICALLY
-    counts = hb.get_array()
-    
-    # Get true counts (hb.get_array() is means if C is set)
-    # Re-run for counts
+    # Re-run for counts using a temporary invisible axis or just remove it
+    # We must match the grid exactly.
     hb_counts = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
                            gridsize=40, mincnt=1, alpha=0) 
     bin_counts = hb_counts.get_array()
+    hb_counts.remove() # Clean up the helper plot
     
     if len(bin_counts) == len(hb.get_array()):
         # Log-scale mapping for alpha: log(count)
-        # Handle count=1 gracefully (log(1)=0)
-        log_counts = np.log10(bin_counts)
+        log_counts = np.log1p(bin_counts)
         min_log = log_counts.min()
         max_log = log_counts.max()
         
-        # Normalize to [0.2, 1.0] - Ensure even 1 count is slightly visible (0.2)
+        # Normalize to [0.1, 1.0] - aggressive transparency for low density
         if max_log > min_log:
-            alpha_vals = 0.2 + 0.8 * (log_counts - min_log) / (max_log - min_log)
+            alpha_vals = 0.1 + 0.9 * (log_counts - min_log) / (max_log - min_log)
         else:
-            alpha_vals = np.ones_like(bin_counts) * 0.8
+            alpha_vals = np.ones_like(bin_counts)
             
-        # Set alpha for each hexagon individually
-        facecolors = hb.get_facecolors()
-        if len(facecolors) == len(alpha_vals):
-            facecolors[:, 3] = alpha_vals
-            hb.set_facecolors(facecolors)
-        else:
-             # Robust way: Re-map colors manually
-             from matplotlib import cm
-             cmap = cm.get_cmap('viridis')
-             norm = plt.Normalize(vmin=final_ticks[0], vmax=final_ticks[-1])
-             mapped_colors = cmap(norm(hb.get_array()))
-             mapped_colors[:, 3] = alpha_vals
-             hb.set_facecolors(mapped_colors)
+        # Robust way: Re-map colors manually
+        # Use the norm from the hexbin itself to ensure consistency
+        from matplotlib import cm
+        cmap = plt.get_cmap('viridis')
+        # Use hb norm
+        norm = hb.norm if hb.norm else plt.Normalize(vmin=hb.get_clim()[0], vmax=hb.get_clim()[1])
+        
+        # Map C-values (means) to RGBA
+        mapped_colors = cmap(norm(hb.get_array()))
+        mapped_colors[:, 3] = alpha_vals # Overwrite alpha
+        
+        # Apply
+        hb.set_facecolors(mapped_colors)
+        # Also ensure edgecolors match or are none, otherwise edges might be opaque
+        hb.set_edgecolors('face') # Or 'none'
+        # hb.set_linewidths(0.2) # Keeping existing width
 
     cbar = plt.colorbar(hb, ax=ax, extend='max')
     cbar.set_label("Mean Sale Price", fontsize=10)
@@ -2035,8 +2067,29 @@ if mask_valid_price.sum() > 100:
                     gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2, bins='log')
     
     # Colorbar is needed as a legend
+    # Colorbar is needed as a legend
     cbar = plt.colorbar(hb, ax=ax)
-    max_c = int(np.power(10, hb.get_array().max())) if hb.get_array().size > 0 else 0
+    
+    # Safe max calculation checking for inf/nan
+    arr = hb.get_array()
+    if arr.size > 0:
+        cleaned_arr = arr[np.isfinite(arr)]
+        if cleaned_arr.size > 0:
+            max_val = cleaned_arr.max()
+            # If bins='log', value is log10(N+1). So 10**val recovers N+1.
+            # But hexbin 'log' behavior is: counts -> log10(counts+1).
+            # So 10^val - 1 is count.
+            # But wait, documentation says "log10(N+1)".
+            # Let's assume 10^val roughly.
+            try:
+                max_c = int(np.power(10, max_val))
+            except (OverflowError, ValueError):
+                max_c = 0 # Fallback for safety
+        else:
+            max_c = 0
+    else:
+        max_c = 0
+        
     cbar.set_label("Log Count", fontsize=10)
     
     # Create simple integer ticks: 0, 25%, 50%, 75%, Max (rounded)
