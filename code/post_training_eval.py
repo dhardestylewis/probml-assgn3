@@ -370,6 +370,7 @@ else:
 
     # store for residual diagnostics
     y_true_log_eval = y_true_log
+    y_true_eval = y_true # Fix NameError
     mu_log_eval = log_mu
     var_log_eval = var_log
     # Indices for metadata fetch
@@ -814,7 +815,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_xticks(curr_ticks)
         ax.set_xticklabels(curr_labels)
         
-        ax.set_xlabel("Predicted Price (Log Scale)", fontsize=11)
+        ax.set_xlabel("Predicted Price", fontsize=11)
         ax.set_ylabel("Standardized Residual", fontsize=11)
         ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
         
@@ -863,9 +864,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
              if len(bin_centers_abs) > 0:
                   ax.plot(bin_centers_abs, bin_abs_means, 'r-o', linewidth=2, label='Mean Abs Resid')
         
-        ax.set_xlabel("Predicted Log Price")
-        ax.set_ylabel("|Residual| (Log Space)")
+        ax.set_xlabel("Predicted Price")
+        ax.set_ylabel("|Residual|")
         ax.set_title("Absolute Residuals vs Prediction", fontweight='bold')
+        plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
         plt.tight_layout()
         save_figure("residuals_absolute_vs_pred.png")
         plt.show()
@@ -917,23 +919,15 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.set_xticks(curr_ticks)
     ax.set_xticklabels(curr_labels)
     
-    ax.set_xlabel("Predicted Price (Log Scale)")
-    ax.set_ylabel("Residual (Log Space)")
+    ax.set_xlabel("Predicted Price")
+    ax.set_ylabel("Residual")
     ax.set_title("Conditional Bias", fontweight='bold')
     
     # Range limits as requested
     ax.set_ylim(-10, 10)
-    # Check max range for X (might not need explicit limit if ticks cover it, but user mentioned 20 max range?) 
-    # User said "20 horizontal max range". Assuming this means absolute residuals max or similar? 
-    # But this is Residual vs Pred. Pred is log price (11-15). Residual is -2 to 2 typically.
-    # Ah, User said "revise conditional bias to -10 10 vertical scale and 20 horizontal max range"
-    # Maybe horizontal means max absolute residual? But x-axis is prediction.
-    # Or maybe they meant standardized residual plot x-axis? 
-    # Given "20 horizontal max range" is ambiguous for "Predicted Log Price" (which is around 13-14), 
-    # I will assume they meant Y-axis range [-10, 10] and maybe X-axis is fine as is (data range).
-    # Wait, "20 horizontal max range" might refer to the *previous* request for residual axis? 
-    # Let's stick to X=Predicted (Currency), Y=Residual [-10, 10].
     
+    plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+
     ax.legend()
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
@@ -1049,7 +1043,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.set_xticklabels(tbl['year'].astype(int), rotation=45)
                         
                         ax.set_xlabel("Sale Year")
-                        ax.set_ylabel("Mean Residual (Log Space) +/- SE")
+                        ax.set_ylabel("Mean Residual +/- SE")
                         ax.set_title("Performance Stability by Sale Year", fontweight='bold')
                         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
                         save_figure("residuals_by_sale_year.png")
@@ -1099,7 +1093,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         # Set limits to [-1, 1] usually enough for mean, but std error bars might exceed
                         # User wants no abbreviation to "resid"
-                        ax.set_ylabel("Mean Residual (Log Space)")
+                        ax.set_ylabel("Mean Residual +/- Std Dev")
                         ax.set_title("Performance by Building Class", fontweight='bold')
                         
                         # Replace X-axis ticks with Vertical Text Labels
@@ -1232,7 +1226,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     fig, ax1 = plt.subplots(figsize=(8, 5))
                     ax1.plot(bin_centers_m, bin_err_means, 'r-o', label='Mean Abs Resid')
                     ax1.set_xlabel("Fraction of Features Missing")
-                    ax1.set_ylabel("|Residual| (Log)", color='red')
+                    ax1.set_ylabel("|Residual|", color='red')
                     ax1.tick_params(axis='y', labelcolor='red')
                     
                     # Add Sigma vs Missingness if available
@@ -1248,8 +1242,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                          if len(bin_sigma_means) == len(bin_centers_m):
                              ax2 = ax1.twinx()
                              ax2.plot(bin_centers_m, bin_sigma_means, 'b--s', label='Mean Sigma (Uncertainty)')
-                             ax2.set_ylabel("Sigma (Log Space)", color='blue')
+                             ax2.set_ylabel("Sigma", color='blue')
                              ax2.tick_params(axis='y', labelcolor='blue')
+                             plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
                              
                              # Combined legend
                              lines1, labels1 = ax1.get_legend_handles_labels()
@@ -1374,8 +1369,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   # Plot binned residuals (hexbin) to show spatial pattern
                   hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
-                  plt.colorbar(hb, ax=ax, label="Mean Residual (Log)")
-                  ax.set_title("Spatial Residual Map (Manhattan)", fontweight='bold')
+                  plt.colorbar(hb, ax=ax, label="Mean Residual")
+                  ax.set_title("Spatial Residual Map", fontweight='bold')
+                  plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
                   
                   # Remove Lat/Long Ticks
                   ax.set_xticks([])
@@ -1383,8 +1379,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   ax.set_xlabel("")
                   ax.set_ylabel("")
                   
-                  # Try to enforce aspect ratio if we assume lat/long
+                  # Try to enforce aspect ratio if we assume lat/lon
                   ax.set_aspect('equal', adjustable='box')
+
+                  # Add Basemap if possible
+                  try:
+                      import contextily as cx
+                      # Assuming WGS84 (lat/lon) for data; contextily expects WebMercator usually,
+                      # but we can try letting it reproject or specifying crs if supported.
+                      # Safest basic usage for standard lat/lon data plotted on ax:
+                      cx.add_basemap(ax, crs='EPSG:4326', source=cx.providers.CartoDB.Positron)
+                  except (ImportError, Exception) as e_map:
+                      print(f"[Eval] Could not add basemap (contextily): {e_map}")
                   
                   save_figure("residuals_spatial_map.png")
                   plt.show()
