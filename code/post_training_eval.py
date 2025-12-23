@@ -1021,7 +1021,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
         
         # Enforce strict Y-limits for standardized plot
-        ax.set_ylim(-10, 10)
+        ax.set_ylim(-2.5, 2.5)
 
         # PREFER TICKS FOR GRID to ensure alignment
         for t in curr_ticks:
@@ -1146,8 +1146,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     # Enforce X-limit cutoff
     ax.set_xlim(left=np.log(100_000))
     
-    # Range limits [-2.5, 2.5]
-    ax.set_ylim(-2.5, 2.5)
+    # Range limits [-1, 1] for Conditional Bias
+    ax.set_ylim(-1, 1)
     
     plt.figtext(0.5, 0.01, "Values in Log Space. Red Line: Binned Mean.", ha="center", fontsize=9, fontstyle='italic')
 
@@ -1210,7 +1210,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         # We want to match the Latent Space color/order logic
                         # Latent space uses a specific order.
                         
-                        fig, ax = plt.subplots(figsize=(12, 6)) # Wider figure
+                        fig, ax = plt.subplots(figsize=(12, 8))  # Taller figure for 50%+ data area
                         
                         # Create temporary columns for sorting
                         # Note: index is already MAPPED code now
@@ -1236,8 +1236,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
-                        # Ensure margins for tall labels (Significantly increased)
-                        plt.tight_layout(rect=[0, 0.25, 1, 0.95]) # Bottom 0.25 for vertical text
+                        # Ensure plot area is at least 50% of figure height
+                        # With height=8, bottom=0.20=1.6in, top=0.95=7.6in -> plot=6in=75%
+                        plt.tight_layout(rect=[0, 0.20, 1, 0.95])
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
@@ -1629,10 +1630,22 @@ try:
         single_imps.sort(key=lambda x: x[1], reverse=True)
         plot_dim1 = single_imps[0][0]
         plot_dim2 = single_imps[1][0]
+        
+        # Compute importance proportions
+        total_imp = sum(max(0, imp) for _, imp in single_imps)  # Sum of positive importance
+        if total_imp > 0:
+            imp1_pct = 100 * max(0, single_imps[0][1]) / total_imp
+            imp2_pct = 100 * max(0, single_imps[1][1]) / total_imp
+        else:
+            imp1_pct, imp2_pct = 50, 50  # Default equal if no positive importance
+        
+        importance_footnote = f"Importance: z{plot_dim1+1}={imp1_pct:.0f}%, z{plot_dim2+1}={imp2_pct:.0f}%"
         print(f"[Eval] Updated plotting axes to Top-2 Single contributors: z{plot_dim1+1} and z{plot_dim2+1}")
+        print(f"[Eval] {importance_footnote}")
     else:
         # Fallback to pair if it's dominant or defaults
         plot_dim1, plot_dim2 = 0, 1 # Default
+        importance_footnote = None  # No proportion available
         if len(pair) == 2:
              plot_dim1, plot_dim2 = pair[0], pair[1]
              print(f"[Eval] Using correlated pair for axes: z{plot_dim1+1}, z{plot_dim2+1}")
@@ -1640,9 +1653,11 @@ try:
 except AssertionError as e_gate:
     print(f"\n[Eval] SKIP Z Importance: {e_gate}")
     plot_dim1, plot_dim2 = 0, 1 # Default
+    importance_footnote = None
 except Exception as e_imp:
     print(f"\n[Eval] Z Importance Analysis failed: {e_imp}")
     plot_dim1, plot_dim2 = 0, 1 # Default
+    importance_footnote = None
     for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
         if hasattr(vae_model, attr):
             print(f"[Eval]   Found relevant attribute: {attr}")
@@ -1998,8 +2013,13 @@ except Exception as e_imp:
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+        ax.grid(False)  # No gridlines
         
-        plt.tight_layout()
+        # Add importance footnote if available
+        if 'importance_footnote' in dir() and importance_footnote:
+            plt.figtext(0.5, 0.01, importance_footnote, ha='center', fontsize=9, fontstyle='italic')
+        
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95] if importance_footnote else [0, 0, 1, 1])
         save_figure("latent_space_price.png")
         plt.show()
         

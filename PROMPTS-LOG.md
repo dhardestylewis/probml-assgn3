@@ -643,6 +643,14 @@ At the end of each substantive answer, include a short meta-calibration block wi
 **User Prompt:**
 > make the residuals vs references plots span -2.5 to 2.5
 
-### 154. [2025-12-22 20:08] Git Push Verification
+### 155. [2025-12-22 20:50] Importance and Ranges
 **User Prompt:**
-> are you still pushing to git every prompt too
+> are you still in any way determining laten dimension importance relative to each other?
+>
+> conditional bias should span -1 to 1
+>
+> residuals vs predictions from -2.5 to 2.5 for both
+
+### 157. [2025-12-22 20:51] Importance Proportion Footnote
+**User Prompt:**
+> why arent we plotting the two most important latents with a footnote indicating some kind of proportion importance if possible to compute?
