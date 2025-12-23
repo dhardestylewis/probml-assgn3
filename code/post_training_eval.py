@@ -1631,7 +1631,60 @@ else:
     print("\n[Eval] No stored residuals; skipping residual diagnostics.")
 
 # ===========================================================================
-# 7. Latent-space visualization
+# --- 7. Latent Space Visualization ---
+# Drop this immediately before the latent plotting blocks and run once.
+# It prints and asserts whether the SAME df_pred row indices are used.
+
+limit_log = np.log(100_000.0)
+
+log_price_all = df_pred[log_y_col].astype(float).to_numpy()
+# Check finiteness AND threshold
+mask_price = np.isfinite(log_price_all) & (log_price_all >= limit_log)
+
+bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
+bldg_class_col = next((c for c in bldg_class_candidates if c in df_pred.columns), None)
+
+mask_bldg = np.ones(len(df_pred), dtype=bool)
+if bldg_class_col is not None:
+    mask_bldg = df_pred[bldg_class_col].notna().to_numpy()
+
+mask_common = mask_price & mask_bldg
+idx_common = np.flatnonzero(mask_common)
+
+print("\n[Mask debug] bldg_class_col =", bldg_class_col)
+print("[Mask debug] N(df_pred)    =", len(df_pred))
+print("[Mask debug] N(mask_price) =", int(mask_price.sum()))
+print("[Mask debug] N(mask_bldg)  =", int(mask_bldg.sum()))
+print("[Mask debug] N(mask_common)=", int(mask_common.sum()))
+
+# Price plot inputs (what your code uses)
+idx_used_price = np.flatnonzero(mask_common)
+
+# Building-class plot inputs (what your code intends to use)
+idx_used_bldg = np.flatnonzero(mask_common)
+
+print("[Mask debug] N(price used) =", len(idx_used_price))
+print("[Mask debug] N(bldg used)  =", len(idx_used_bldg))
+
+# Strong check: exact same row indices, in the same order
+assert np.array_equal(idx_used_price, idx_used_bldg), "Mismatch: price and building-class masks differ"
+
+# Sanity: confirm latent arrays line up with idx_common
+assert mu_z.shape[0] == len(df_pred), "Mismatch: mu_z rows do not align with df_pred rows"
+
+print("[Mask debug] PASS: price and building-class plots use identical df_pred rows.")
+
+# --- Define Shared Data for Plots ---
+# Enforce that ALL plots use this common subset
+valid_z_common = mu_z[mask_common]
+price_common   = np.exp(log_price_all[mask_common])
+log_price_common = log_price_all[mask_common]
+
+# Update downstream variables to use COMMON mask
+mask_valid_price = mask_common
+valid_z_price = valid_z_common
+price_subset = price_common
+
 # ===========================================================================
 print("\n[Eval] Generating latent space visualizations.")
 
@@ -2269,7 +2322,8 @@ size_col = next((c for c in size_candidates if c in df_pred.columns), None)
 if size_col:
     print(f"[Eval] Using '{size_col}' for Size-based Latent Viz.")
     size_vals = df_pred[size_col].astype(float).values
-    mask_valid_size = np.isfinite(size_vals) & (size_vals > 0)
+    # Update Mask: Strict intersection with mask_common (Global Consistency)
+    mask_valid_size = mask_common & np.isfinite(size_vals) & (size_vals > 0)
     
     if mask_valid_size.sum() > 100:
         log_size = np.log10(size_vals[mask_valid_size])
@@ -2446,6 +2500,29 @@ if bldg_class_col:
     n_present = len(present_classes)
     cmap = plt.cm.get_cmap('tab20', max(n_present, 1))
     
+    # Calculate Density-Based Alpha (Adaptive Gamma) to match Price Scatter visual weight
+    # Use bldg_z (which is valid_z_common) for density estimation
+    xy_bldg = np.vstack([bldg_z[:, 0], bldg_z[:, 1]])
+    kde_bldg = gaussian_kde(xy_bldg)
+    dens_bldg = kde_bldg(xy_bldg)
+    
+    # Adaptive Gamma Logic (Identical to Price Scatter)
+    q_lo, q_hi = np.quantile(dens_bldg, [0.01, 0.99])
+    dens_clipped = np.clip(dens_bldg, q_lo, q_hi)
+    dens_log = np.log(dens_clipped)
+    min_log, max_log = dens_log.min(), dens_log.max()
+    norm_log_bldg = (dens_log - min_log) / (max_log - min_log + 1e-12) if max_log > min_log else np.ones_like(dens_log)
+    
+    target_median = 0.30
+    med_val = np.median(norm_log_bldg)
+    gamma_bldg = 1.0
+    if med_val < target_median and med_val > 0.01:
+        gamma_bldg = np.log(target_median) / np.log(med_val)
+        gamma_bldg = min(gamma_bldg, 2.5)
+        
+    alpha_bldg = norm_log_bldg ** gamma_bldg
+    print(f"[Eval] Building Class Transparency: Adaptive Gamma {gamma_bldg:.2f} (Median {med_val:.2f}->{np.median(alpha_bldg):.2f})")
+
     # Plot in predefined order for color consistency, legend outside
     for color_idx, letter in enumerate(present_classes):
         mask = (bldg_series == letter).values
@@ -2453,7 +2530,9 @@ if bldg_class_col:
             continue
         
         lbl_full = class_labels.get(letter, letter)
-        ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, alpha=0.5, 
+        # Apply per-point alpha (density-weighted)
+        ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, 
+                    alpha=alpha_bldg[mask], 
                     color=cmap(color_idx), label=lbl_full, edgecolors='none')
     
     # Add Graded Density Contours Overlay
