@@ -811,24 +811,26 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         for b in bins:
             ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
             
-        # Ticks: Log -> Currency
+        # Ticks: Log -> Currency (Vertical)
         curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
         ax.set_xticks(curr_ticks)
-        ax.set_xticklabels(curr_labels)
+        ax.set_xticklabels(curr_labels, rotation=90)
         
         ax.set_xlabel("Predicted Price", fontsize=11)
-        ax.set_ylabel("Standardized Residual", fontsize=11)
-        ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
+        ax.set_ylabel("Residual (Standard Deviations)", fontsize=11)
+        ax.set_title("Residuals vs Prediction (Normalized)", fontweight='bold')
         
-        # Fixed Y-Range [-20, 20] as requested
-        ax.set_ylim(-20, 20)
+        # Fixed Y-Range [-10, 10] as requested (or 20 for standardized?)
+        # User said "make that range -10 10 for all residual plots"
+        # Standardized might be larger, but let's stick to 10 for consistency if requested.
+        ax.set_ylim(-10, 10)
         
         # Footnote
-        plt.figtext(0.5, 0.01, "Values in Log Space. 1 unit = 1 Standard Deviation", 
+        plt.figtext(0.5, 0.01, "Values in Log Space. Y-axis in Standard Deviations.", 
                     ha="center", fontsize=9, fontstyle='italic')
         
         ax.legend()
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.05, 1, 1]) # Space for footnote/vertical ticks
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
 
@@ -868,8 +870,16 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_xlabel("Predicted Price")
         ax.set_ylabel("|Residual|")
         ax.set_title("Absolute Residuals vs Prediction", fontweight='bold')
+        
+        # Dollar Ticks Vertical
+        ax.set_xticks(curr_ticks)
+        ax.set_xticklabels(curr_labels, rotation=90)
+        
+        # Range [0, 10]
+        ax.set_ylim(0, 10)
+        
         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
         save_figure("residuals_absolute_vs_pred.png")
         plt.show()
         
@@ -915,21 +925,22 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     for b in bins:
         ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
         
-    # Currency Ticks
+    # Currency Ticks Vertical
     curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
     ax.set_xticks(curr_ticks)
-    ax.set_xticklabels(curr_labels)
+    ax.set_xticklabels(curr_labels, rotation=90)
     
     ax.set_xlabel("Predicted Price")
     ax.set_ylabel("Residual")
     ax.set_title("Conditional Bias", fontweight='bold')
     
-    # Range limits as requested
+    # Range limits [-10, 10]
     ax.set_ylim(-10, 10)
     
     plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
 
     ax.legend()
+    plt.tight_layout(rect=[0, 0.05, 1, 1]) # Margin for vertical ticks
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
 
@@ -1064,8 +1075,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         'std_resid': grp.std(),
                         'count': grp.count()
                     })
-                    # Filter
-                    bldg_stats = bldg_stats[bldg_stats['count'] > 50].sort_values('mean_resid')
+                    # Filter - Lower threshold to see more classes as requested
+                    # Matched to latent plot or simply lower (e.g. 20)
+                    bldg_stats = bldg_stats[bldg_stats['count'] > 20].sort_values('mean_resid')
                     
                     # Map codes to full names if possible
                     code_map = {
@@ -1119,7 +1131,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure margins for tall labels
-                        plt.tight_layout(rect=[0, 0, 1, 0.9])
+                        plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
+                        
+                        # Ensure margins for tall labels
+                        plt.tight_layout(rect=[0, 0.1, 1, 0.9]) # Extra bottom margin for vertical text
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
@@ -1163,7 +1178,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.axhline(0, color='black', linestyle='--')
                         ax.set_xlabel("Decade Built")
                         ax.set_ylabel("Mean Residual ± SE")
-                        ax.set_title("Residual Stability by Year Built (Time Check)", fontweight='bold')
+                        ax.set_title("Residual Stability by Year Built", fontweight='bold')
                         save_figure("residuals_by_year.png")
                         plt.show()
                 
@@ -1181,7 +1196,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     ax.axhline(0, color='black', linewidth=1)
                     ax.set_xlabel("Building Class (Major)")
                     ax.set_ylabel("Mean Residual ± SE")
-                    ax.set_title("Residual Stability by Building Class (Type Check)", fontweight='bold')
+                    ax.set_title("Residual Stability by Building Class", fontweight='bold')
                     save_figure("residuals_by_bldg_class.png")
                     plt.show()
                     
