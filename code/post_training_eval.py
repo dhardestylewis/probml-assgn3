@@ -168,24 +168,18 @@ def add_graded_density_contours(ax, x, y, xlim, ylim, levels=5):
         Z_grid = np.reshape(kernel(positions).T, X_grid.shape)
         
         # Define styles for levels (Outer -> Inner)
-        # Inner: Thicker (2.5), Opaque (1.0), Black
-        # Outer: Thinner (1.0), Translucent (0.4), Black
+        # Revert to LINEAR levels per user request ("change back to linear for both")
         linewidths = np.linspace(1.0, 2.5, levels)
         alphas = np.linspace(0.4, 1.0, levels)
         
-        # Plot each level manually to control alpha/width independently?
-        # ax.contour supports array of linewidths but single alpha/color usually needs separate calls or a colormap
-        # Easiest: Plot all black with variable widths, then overlay?
-        # Actually ax.contour accepts 'linewidths' (plural) matching levels.
-        # But 'colors' with alpha is tricky.
-        # Let's use a single call with 'colors' tuple list.
         level_colors = [(0, 0, 0, a) for a in alphas]
         
+        # Use default linear levels (or auto-levels from density range)
         ax.contour(X_grid, Y_grid, Z_grid, levels=levels, 
                    linewidths=linewidths, colors=level_colors, zorder=3)
         
-        # Annotation explaining the contours
-        ax.text(0.02, 0.98, "Contours: Density Iso-lines\n(Thicker = Higher Density)",
+        # Annotation explaining the lines
+        ax.text(0.02, 0.98, "Contours: Density Iso-lines\n(Linear Scale)",
                 transform=ax.transAxes, fontsize=8, verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.3),
                 zorder=4)
@@ -819,6 +813,17 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
         ax.plot(x_grid, pdf_t_best, color='#e74c3c', linestyle='-', linewidth=2, 
                 alpha=0.9, label=f'Best Fit (Student-t, $\\nu$={df_fit:.1f})', zorder=2)
+
+        # Add 1D Density Equivalents (Quantile vertical lines) to match 2D contours
+        qs = np.percentile(resid_log, [2.5, 25, 75, 97.5])
+        
+        # 95% Interval (Outer) - corresponds to outer contour
+        ax.axvline(qs[0], color='black', linestyle='--', linewidth=0.8, alpha=0.5, label='95% Interval')
+        ax.axvline(qs[3], color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+        
+        # 50% Interval (Inner) - corresponds to inner contour region
+        ax.axvline(qs[1], color='black', linestyle=':', linewidth=1.2, alpha=0.8, label='50% Interval')
+        ax.axvline(qs[2], color='black', linestyle=':', linewidth=1.2, alpha=0.8)
 
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
@@ -1872,10 +1877,13 @@ if mask_valid_price.sum() > 100:
         y_idxs = np.clip(np.searchsorted(yedges, z_shuffled[:, plot_dim2]) - 1, 0, 49)
         point_counts = H[x_idxs, y_idxs]
         
-        # Map counts to alpha [0.2, 0.9]
-        # Log scale mapping
-        log_counts = np.log1p(point_counts)
-        alpha_per_point = 0.2 + 0.7 * (log_counts - log_counts.min()) / (log_counts.max() - log_counts.min() + 1e-6)
+        # Map counts to alpha [0.1, 1.0]
+        # Linear scale mapping
+        min_c, max_c = point_counts.min(), point_counts.max()
+        if max_c > min_c:
+             alpha_per_point = 0.1 + 0.9 * (point_counts - min_c) / (max_c - min_c)
+        else:
+             alpha_per_point = np.ones_like(point_counts) * 0.5
         
         # We need to set alpha via facecolors/edgecolors since 'alpha' kwarg doesn't take array in simple scatter
         # But we also have 'c' mapped to colormap.
@@ -1993,17 +2001,17 @@ if mask_valid_price.sum() > 100:
     hb_counts.remove() # Clean up the helper plot
     
     if len(bin_counts) == len(hb.get_array()):
-        # Log-scale mapping for alpha: log(count)
-        log_counts = np.log1p(bin_counts)
-        min_log = log_counts.min()
-        max_log = log_counts.max()
+        # Linear-scale mapping for alpha (Standard)
+        min_c, max_c = bin_counts.min(), bin_counts.max()
         
-        # Normalize to [0.1, 1.0] - aggressive transparency for low density
-        if max_log > min_log:
-            alpha_vals = 0.1 + 0.9 * (log_counts - min_log) / (max_log - min_log)
+        if max_c > min_c:
+            # Scale 0.1 to 1.0
+            alpha_vals = 0.1 + 0.9 * (bin_counts - min_c) / (max_c - min_c)
         else:
             alpha_vals = np.ones_like(bin_counts)
-            
+        
+        print(f"[Eval] Hexbin Transparency: Linear Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
+
         # Robust way: Re-map colors manually
         # Use the norm from the hexbin itself to ensure consistency
         from matplotlib import cm
@@ -2017,9 +2025,9 @@ if mask_valid_price.sum() > 100:
         
         # Apply
         hb.set_facecolors(mapped_colors)
-        # Also ensure edgecolors match or are none, otherwise edges might be opaque
-        hb.set_edgecolors('face') # Or 'none'
-        # hb.set_linewidths(0.2) # Keeping existing width
+        # Remove opaque edges to ensure transparency works visually
+        hb.set_linewidths(0) 
+        # hb.set_edgecolors('face') # Redundant if linewidth=0
 
     cbar = plt.colorbar(hb, ax=ax, extend='max')
     cbar.set_label("Mean Sale Price", fontsize=10)
@@ -2028,7 +2036,7 @@ if mask_valid_price.sum() > 100:
     
     # Add Density Contours removed for Hexbin (relies on Alpha Transparency)
     # Add annotation for transparency
-    ax.text(0.02, 0.98, "Opacity ∝ Density\n(Darker/Solid = Undersampled)", 
+    ax.text(0.02, 0.98, "Opacity $\\propto$ Density\n(Linear Scale)", 
             transform=ax.transAxes, fontsize=8, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, pad=0.3),
             zorder=4)
@@ -2062,50 +2070,25 @@ if mask_valid_price.sum() > 100:
     
     # White→Blue/Black colormap: transparent/light in sparse areas, dark in dense areas
     # Reverting to explicit colormap with legend as requested
-    # Use bins='log' to handle skewed density (power law likely)
+    # Revert to LINEAR bins as requested
     hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
-                    gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2, bins='log')
+                    gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2)
     
     # Colorbar is needed as a legend
     # Colorbar is needed as a legend
     cbar = plt.colorbar(hb, ax=ax)
     
-    # Safe max calculation checking for inf/nan
-    arr = hb.get_array()
-    if arr.size > 0:
-        cleaned_arr = arr[np.isfinite(arr)]
-        if cleaned_arr.size > 0:
-            max_val = cleaned_arr.max()
-            # If bins='log', value is log10(N+1). So 10**val recovers N+1.
-            # But hexbin 'log' behavior is: counts -> log10(counts+1).
-            # So 10^val - 1 is count.
-            # But wait, documentation says "log10(N+1)".
-            # Let's assume 10^val roughly.
-            try:
-                max_c = int(np.power(10, max_val))
-            except (OverflowError, ValueError):
-                max_c = 0 # Fallback for safety
-        else:
-            max_c = 0
-    else:
-        max_c = 0
+    # Safe max calculation check not needed for linear, but keeping robust structure
+    max_c = int(hb.get_array().max()) if hb.get_array().size > 0 else 0
         
-    cbar.set_label("Log Count", fontsize=10)
+    cbar.set_label("Count", fontsize=10)
     
     # Create simple integer ticks: 0, 25%, 50%, 75%, Max (rounded)
-    # Log-scale ticks: 1, 10, 100, 1000...
-    if max_c > 0:
-        max_pow = int(np.ceil(np.log10(max_c)))
-        tick_vals_log = np.arange(0, max_pow + 1) # 10^0 to 10^max
-        tick_vals = tick_vals_log # bins='log' returns log10(count)
-        tick_labels = [f"{int(10**t):,}" for t in tick_vals]
-        # Filter if too many
-        if len(tick_vals) > 6:
-            tick_vals = tick_vals[::2]
-            tick_labels = tick_labels[::2]
-            
-        cbar.set_ticks(tick_vals)
-        cbar.set_ticklabels(tick_labels)
+    # Human readable with commas
+    tick_vals = np.linspace(0, max_c, 5)
+    tick_labels = [f"{int(t):,}" for t in tick_vals]
+    cbar.set_ticks(tick_vals)
+    cbar.set_ticklabels(tick_labels)
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
