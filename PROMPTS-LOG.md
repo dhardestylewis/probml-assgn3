@@ -657,6 +657,6 @@ At the end of each substantive answer, include a short meta-calibration block wi
 >
 > for that plot the y axis is labeled "mean residual" yet are these mean residuals or just raw residuals being plotted?
 >
-### 159. [2025-12-22 20:57] Remove Uniform Scale Note
+### 164. [2025-12-22 21:05] Convert Binned to LOESS
 **User Prompt:**
-> you dont need to note "(Uniform Scale)" in the title that is a footnote if not directly obvious from the axes values themselves
+> revise your other plots still using bins have been converted to LOESS

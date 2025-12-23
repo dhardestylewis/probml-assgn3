@@ -141,6 +141,58 @@ def check_head_vs_trainer_mu(vae_model, vae_trainer, X_all_np, eval_pos_idx, n=2
     print(f"[Contract] Head vs Trainer Check: max_diff={max_abs:.6f}, mean_diff={mean_abs:.6f}")
     assert max_abs < atol, f"Mismatch (max={max_abs}): do not interpret Z importance or Z SHAP until this passes."
     
+def add_graded_density_contours(ax, x, y, xlim, ylim, levels=5):
+    """
+    Adds graded density contours to an existing plot.
+    Innermost lines are thicker, bolder, and more opaque than outermost lines.
+    """
+    try:
+        import scipy.stats as st
+        # Grid setup for 2D density
+        deltaX = (xlim[1] - xlim[0]) / 50
+        deltaY = (ylim[1] - ylim[0]) / 50
+        xmin, xmax = xlim
+        ymin, ymax = ylim
+        X_grid, Y_grid = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+        positions = np.vstack([X_grid.ravel(), Y_grid.ravel()])
+        values = np.vstack([x, y])
+        
+        # Downsample for speed if N is huge
+        if len(x) > 10000:
+             idx = np.random.choice(len(x), 5000, replace=False)
+             values_kde = values[:, idx]
+        else:
+             values_kde = values
+             
+        kernel = st.gaussian_kde(values_kde)
+        Z_grid = np.reshape(kernel(positions).T, X_grid.shape)
+        
+        # Define styles for levels (Outer -> Inner)
+        # Inner: Thicker (2.5), Opaque (1.0), Black
+        # Outer: Thinner (1.0), Translucent (0.4), Black
+        linewidths = np.linspace(1.0, 2.5, levels)
+        alphas = np.linspace(0.4, 1.0, levels)
+        
+        # Plot each level manually to control alpha/width independently?
+        # ax.contour supports array of linewidths but single alpha/color usually needs separate calls or a colormap
+        # Easiest: Plot all black with variable widths, then overlay?
+        # Actually ax.contour accepts 'linewidths' (plural) matching levels.
+        # But 'colors' with alpha is tricky.
+        # Let's use a single call with 'colors' tuple list.
+        level_colors = [(0, 0, 0, a) for a in alphas]
+        
+        ax.contour(X_grid, Y_grid, Z_grid, levels=levels, 
+                   linewidths=linewidths, colors=level_colors, zorder=3)
+        
+        # Annotation explaining the contours
+        ax.text(0.02, 0.98, "Contours: Density Iso-lines\n(Thicker = Higher Density)",
+                transform=ax.transAxes, fontsize=8, verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.3),
+                zorder=4)
+                
+    except Exception as e:
+        print(f"[Eval] Failed to add graded density contours: {e}")
+    
 # --- SALE YEAR CONTRACT (Gate D Helper) ---
 def sale_year_bin_table(meta_df, yr_col, y_true, mu, var, bin_width=1, min_count=20):
     """
@@ -581,10 +633,17 @@ if (sale_col is not None) and (var_log_eval is not None):
         ax.axhline(0.80, color='gray', linestyle=':')
         ax.axhline(0.95, color='gray', linestyle=':')
         ax.set_ylim(0, 1) # Strict range [0, 1]
-        ax.set_xlabel("Sale Year")
-        ax.set_ylabel("Empirical Coverage")
-        ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold')
-        ax.legend()
+        
+        # Ensure integer year ticks
+        years = tbl_sale['year'].astype(int).values
+        ax.set_xticks(years)
+        ax.set_xticklabels([str(y) for y in years], rotation=45, ha='right')
+        
+        ax.set_xlabel("Sale Year", fontsize=11)
+        ax.set_ylabel("Empirical Coverage", fontsize=11)
+        ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold', fontsize=14)
+        ax.legend(loc='lower right', fontsize=9)
+        plt.tight_layout()
         save_figure("coverage_by_sale_year.png")
         plt.show()
 if have_cv_dist and var_log_eval is not None:
@@ -758,28 +817,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     if HAVE_SCIPY:
         # Plot only the best-fit Student-t curve (no reference lines)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
-        ax.plot(x_grid, pdf_t_best, color='gray', linestyle='-', linewidth=2, 
+        ax.plot(x_grid, pdf_t_best, color='#e74c3c', linestyle='-', linewidth=2, 
                 alpha=0.9, label=f'Best Fit (Student-t, $\\nu$={df_fit:.1f})', zorder=2)
 
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
     
     # Fixed axis limits for residual plots
-    ax.set_xlim(-10, 10)
-    ax.set_ylim(0, 2)
-    ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)  # subtle zero line
+    ax.set_xlim(-2, 2)
+    ax.set_ylim(0, 3)
     
-    # Title + subtitle with formula
-    ax.set_xlabel("Residual", fontsize=11)
-    ax.set_ylabel("Density", fontsize=11)
-    
-    # Fixed axis limits for residual plots
-    ax.set_xlim(-10, 10)
-    ax.set_ylim(0, 2)
-    ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
-    
-    # Standardized Title (No Suptitle)
-    ax.set_title("Residuals vs References", fontweight='bold', fontsize=12)
+    # Title
+    ax.set_title("Residuals vs References", fontweight='bold', fontsize=14)
     
     # Math Footnote (User Requested)
     plt.figtext(0.5, 0.01, r"$r = \log(y_{true}) - \log(y_{pred})$", ha="center", fontsize=10)
@@ -863,9 +912,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_xlabel("Theoretical Quantiles", fontsize=11)
         ax.set_ylabel("Ordered Residuals", fontsize=11)
         
-        # Title
-        fig.suptitle("Q-Q Plot", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Residuals vs Student-t reference", fontsize=9, color='gray', pad=3)
+        # Title - simple, no subtitle
+        ax.set_title("Q-Q Plot", fontsize=14, fontweight='bold', pad=10)
         
         # Annotation for fit quality
         ax.text(0.05, 0.95, f"Slope: {slope_t:.3f}\nR2: {r_t**2:.3f}",  
@@ -875,9 +923,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Equal aspect ratio
         ax.set_aspect('equal', adjustable='box')
         
-        # Fixed limits to match histogram
-        ax.set_xlim(-15, 15)
-        ax.set_ylim(-15, 15)
+        # Fixed limits per user request
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(-2, 2)
         
         ax.legend(loc='lower right', fontsize=8, framealpha=0.9)
         ax.spines['top'].set_visible(False)
@@ -969,50 +1017,62 @@ if y_true_log_eval is not None and mu_log_eval is not None:
 
         # Resids vs Pred (Standardized)
         fig, ax = plt.subplots(figsize=(8, 5))
-        ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='gray')
+        ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='#21918c')  # Viridis mid-tone
         
         # Ticks: Log -> Currency (Vertical)
         curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
         
-        # Binned Mean/Std - ALIGN BINS WITH TICKS
-        if len(curr_ticks) > 2:
-            bins = np.array(curr_ticks)
-            bin_idx = digitize_safe(mu_log_eval, bins)
-            bin_means = []
-            bin_stds = []
-            bin_centers = []
+        # LOESS smoothing with std dev band
+        try:
+            from statsmodels.nonparametric.smoothers_lowess import lowess
+            sorted_idx = np.argsort(mu_log_eval)
+            x_sorted = mu_log_eval[sorted_idx]
+            y_sorted = std_resid[sorted_idx]
             
-            for i in range(1, len(bins)):
-                mask_bin = bin_idx == i
-                if mask_bin.sum() > 5:
-                    bin_means.append(std_resid[mask_bin].mean())
-                    bin_stds.append(std_resid[mask_bin].std())
-                    bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+            # LOESS for mean trend
+            loess_result = lowess(y_sorted, x_sorted, frac=0.3, return_sorted=True)
+            ax.plot(loess_result[:, 0], loess_result[:, 1], 'r-', linewidth=2, label='LOESS Trend')
             
-            if len(bin_centers) > 0:
-                ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', label='Mean +/- 1 Std', capsize=3)
+            # Compute local std dev for confidence band
+            # Use rolling window std for band
+            window = max(50, len(x_sorted) // 20)
+            y_roll_std = np.array([y_sorted[max(0,i-window//2):min(len(y_sorted),i+window//2)].std() 
+                                   for i in range(len(y_sorted))])
+            # Smooth the std dev
+            std_smooth = lowess(y_roll_std, x_sorted, frac=0.3, return_sorted=True)[:, 1]
+            
+            ax.fill_between(loess_result[:, 0], 
+                           loess_result[:, 1] - std_smooth,
+                           loess_result[:, 1] + std_smooth,
+                           color='red', alpha=0.2, label='±1 Standard Deviation')
+        except ImportError:
+            print("[Eval] statsmodels not available for LOESS; skipping trend line.")
+        except Exception as e_loess:
+            print(f"[Eval] LOESS failed: {e_loess}")
             
         ax.axhline(0, color='black', linestyle='--')
 
         ax.set_xticks(curr_ticks)
         ax.set_xticklabels(curr_labels, rotation=90)
         
-        ax.set_xlabel("Predicted Price (Log Scale)")
-        ax.set_ylabel("Standardized Residual")
-        ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
+        ax.set_xlabel("Predicted Price", fontsize=11)
+        ax.set_ylabel("Residual", fontsize=11)  # Remove 'Standardized' from ylabel
+        ax.set_title("Residuals vs Prediction", fontsize=14, fontweight='bold')  # Remove 'Standardized' from title
         
-        # Enforce strict Y-limits for standardized plot
+        # Footnote for standardization
+        plt.figtext(0.5, 0.01, "Residuals are standardized (r / σ)", ha='center', fontsize=9, fontstyle='italic')
+        
+        # Enforce strict Y-limits
         ax.set_ylim(-2.5, 2.5)
 
         # PREFER TICKS FOR GRID to ensure alignment
         for t in curr_ticks:
             ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
         
-        ax.set_xlabel("Predicted Price", fontsize=11)
         ax.set_xlim(left=np.log(100_000))
         
         ax.legend()
-        plt.tight_layout(rect=[0, 0.15, 1, 0.95])
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
     else:
@@ -1038,18 +1098,18 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         abs_resid = np.abs(resid_log)
         ax.scatter(mu_log_eval, abs_resid, alpha=0.1, s=2, color='gray')
         
-        # Smooth trend
-        if len(mu_log_eval) > 100:
-             bin_abs_means = []
-             bin_centers_abs = []
-             for i in range(1, len(bins)):
-                 mask_bin = bin_idx == i
-                 if mask_bin.sum() > 5:
-                     bin_abs_means.append(abs_resid[mask_bin].mean())
-                     bin_centers_abs.append(0.5 * (bins[i-1] + bins[i]))
-             
-             if len(bin_centers_abs) > 0:
-                  ax.plot(bin_centers_abs, bin_abs_means, 'r-o', linewidth=2, label='Mean Abs Resid')
+        # LOESS smoothing for trend
+        try:
+            from statsmodels.nonparametric.smoothers_lowess import lowess
+            sorted_idx = np.argsort(mu_log_eval)
+            x_sorted = mu_log_eval[sorted_idx]
+            y_sorted = abs_resid[sorted_idx]
+            loess_result = lowess(y_sorted, x_sorted, frac=0.3, return_sorted=True)
+            ax.plot(loess_result[:, 0], loess_result[:, 1], 'r-', linewidth=2, label='LOESS Trend')
+        except ImportError:
+            print("[Eval] statsmodels not available for LOESS; skipping trend line.")
+        except Exception as e_loess:
+            print(f"[Eval] LOESS failed: {e_loess}")
         
         ax.set_xlabel("Predicted Price")
         ax.set_ylabel("|Residual|")
@@ -1089,7 +1149,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
 
     # 4. Conditional Bias Check (Residual vs Pred)
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.scatter(mu_log_eval, resid_log, alpha=0.05, s=2, color='#34495e')
+    ax.scatter(mu_log_eval, resid_log, alpha=0.05, s=2, color='#21918c')  # Viridis mid-tone
     
     # LOESS smoothing for continuous fit instead of binned means
     curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
@@ -1118,7 +1178,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         # Plot ±1σ shaded band
         ax.fill_between(x_smooth, y_smooth - y_std_interp, y_smooth + y_std_interp,
-                        color='red', alpha=0.15, label='±1 Std Dev')
+                        color='red', alpha=0.15, label='±1 Standard Deviation')
     except ImportError:
         print("[Eval] statsmodels not available, falling back to binned mean")
         # Fallback to binned approach if LOESS unavailable
@@ -1145,9 +1205,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     for t in curr_ticks:
         ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
     
-    ax.set_xlabel("Predicted Price")
-    ax.set_ylabel("Residual")  # Raw residuals are plotted
-    ax.set_title("Conditional Bias", fontweight='bold')
+    ax.set_xlabel("Predicted Price", fontsize=11)
+    ax.set_ylabel("Residual", fontsize=11)
+    ax.set_title("Conditional Bias", fontweight='bold', fontsize=14)
     
     # Enforce X-limit cutoff
     ax.set_xlim(left=np.log(100_000))
@@ -1155,7 +1215,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     # Range limits [-1, 1] for Conditional Bias
     ax.set_ylim(-1, 1)
     
-    plt.figtext(0.5, 0.01, "Values in Log Space. Red: LOESS fit ±1σ.", ha="center", fontsize=9, fontstyle='italic')
+    plt.figtext(0.5, 0.01, r"Conditional Bias: $\mathbb{E}[r \mid \hat{y}]$ where $r = \log(y) - \log(\hat{y})$", ha="center", fontsize=9, fontstyle='italic')
 
     ax.legend()
     ax.grid(False) # Strict Grid Removal
@@ -1230,15 +1290,17 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         # Plot
                         ax.errorbar(range(len(bldg_stats)), bldg_stats['mean'], yerr=bldg_stats['std'] / np.sqrt(bldg_stats['count']),
                                fmt='o', color='teal', capsize=4, label='Mean Residual')
-                        ax.axhline(0, color='black', linestyle='--')
+                        ax.axhline(0, color='black', linestyle='--', label='Zero Reference')
                         
-                        ax.set_xlabel("Building Class")
-                        ax.set_ylabel("Mean Residual")
-                        ax.set_title("Performance by Building Class", fontweight='bold')
+                        ax.set_xlabel("Building Class", fontsize=11)
+                        ax.set_ylabel("Mean Residual", fontsize=11)
+                        ax.set_title("Performance by Building Class", fontweight='bold', fontsize=14)
                         
                         # "vertical axis tick labels" -> yes, rotated ticks.
                         ax.set_xticks(range(len(bldg_stats)))
                         ax.set_xticklabels(full_labels, rotation=90, fontsize=10)
+                        
+                        ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
                         
                         plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
@@ -1411,15 +1473,22 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         # Plot
                         fig, ax1 = plt.subplots(figsize=(8, 5))
-                        ax1.plot(fracs_to_test, rmse_list, 'r-o', label='RMSE (Log)')
-                        ax1.set_xlabel("Synthetic Missing Fraction")
-                        ax1.set_ylabel("RMSE", color='red')
+                        ax1.plot(fracs_to_test, rmse_list, '-o', color='#21918c', label='Root Mean Square Error')
+                        ax1.set_xlabel("Synthetic Missing Fraction", fontsize=11)
+                        ax1.set_ylabel("Root Mean Square Error", color='#21918c', fontsize=11)
+                        ax1.set_ylim(bottom=0)  # Y-axis starts at 0
                         
                         ax2 = ax1.twinx()
-                        ax2.plot(fracs_to_test, unc_list, 'b--s', label='Mean Predicted Sigma')
-                        ax2.set_ylabel("Predicted Std Dev", color='blue')
+                        ax2.plot(fracs_to_test, unc_list, '--s', color='#440154', label='Mean Predicted Standard Deviation')
+                        ax2.set_ylabel("Predicted Standard Deviation", color='#440154', fontsize=11)
                         
-                        plt.title("Synthetic Missingness Stress Test", fontweight='bold')
+                        ax1.set_title("Synthetic Missingness Stress Test", fontweight='bold', fontsize=14)
+                        
+                        # Footnote with sample size
+                        plt.figtext(0.5, 0.01, f"n = {n_syn} samples. Values in Log Price Space.", 
+                                   ha='center', fontsize=9, fontstyle='italic')
+                        
+                        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
                         save_figure("synthetic_missingness_stress.png")
                         plt.show()
                 except Exception as e_syn:
@@ -1574,436 +1643,467 @@ def top_corr_pair(z):
         i, j = j, i
     return [int(i), int(j)], float(c[i, j])
 
+# NOTE: Gate check removed - variance-based dimension selection doesn't use price_mean_head
+
 # ----------------------------------------------------
-# HEAD vs TRAINER Contract Check
+# Dimension Selection (Variance-Based)
 # ----------------------------------------------------
+# Use latent variance as proxy for importance - dimensions with higher variance
+# are more informative. This avoids the model inference issues with perm_importance.
 try:
-    check_head_vs_trainer_mu(vae_model, vae_trainer, X_all_np, eval_pos_idx)
+    z_vars = np.var(mu_z, axis=0)
     
-    # ----------------------------------------------------
-    # Robust Z Importance (Group-Based)
-    # ----------------------------------------------------
-    # z_batch and y_target already aligned from latent extraction (X_filled_np -> mu_z)
-    # We need Y aligned to mu_z? 
-    # Current mu_z is all (len(X_filled_np))
-    # y_target is needed. X_filled_np covers all predictions.
-    # We should use observed subset for importance to validate against y_true_log_eval?
-    # Actually, we can just use the indices we have.
+    # Sort by variance (higher = more informative)
+    sorted_dims = np.argsort(z_vars)[::-1]
+    plot_dim1 = sorted_dims[0]
+    plot_dim2 = sorted_dims[1]
     
-    # Let's use the evaluation split for importance to be safe
-    # eval_pos_idx -> indices into mu_z (X_filled_np)
-    # y_true_log_eval -> targets
-    
-    if len(eval_pos_idx) > 5000:
-        idx_imp = eval_pos_idx[:5000]
-        y_imp = y_true_log_eval[:5000]
+    # Compute importance proportions from variance
+    total_var = z_vars.sum()
+    if total_var > 0:
+        imp1_pct = 100 * z_vars[plot_dim1] / total_var
+        imp2_pct = 100 * z_vars[plot_dim2] / total_var
     else:
-        idx_imp = eval_pos_idx
-        y_imp = y_true_log_eval
-        
-    z_imp = mu_z[idx_imp]
+        imp1_pct, imp2_pct = 50, 50
     
-    def predict_wrapper(z_in):
-        zt = torch.from_numpy(z_in).float().to(DEVICE)
-        return predict_mu_from_z(vae_model, zt).detach().cpu().numpy().reshape(-1)
+    importance_footnote = f"Latent dimensions selected by Variance: z{plot_dim1+1} ({imp1_pct:.0f}%) + z{plot_dim2+1} ({imp2_pct:.0f}%)"
+    print(f"[Eval] Dimension selection (variance): z{plot_dim1+1} ({imp1_pct:.1f}%), z{plot_dim2+1} ({imp2_pct:.1f}%)")
 
-    # Detect correlated pairs
-    pair, pair_corr = top_corr_pair(z_imp)
-    others = [k for k in range(z_imp.shape[1]) if k not in pair]
-    groups = [[k] for k in range(z_imp.shape[1])] # Singles
-    groups.append(pair) # Correlated Pair
-    if len(others) > 0:
-        groups.append(others) # Rest
-
-    print(f"\n[Eval] Z Importance: Max |corr| pair for grouping: dims={pair}, corr={pair_corr:.6f}")
-
-    mse_base, stats_g = perm_importance_groups(z_imp, y_imp, predict_wrapper, groups, n_repeats=10, seed=123)
-    print(f"[Eval] Baseline MSE (on subset): {mse_base:.4f}")
-    
-    print("\n[Eval] Latent Importance (Delta MSE):")
-    for g, mean_d, std_d in stats_g:
-        print(f"  Group {g}: delta_MSE={mean_d:.4f} +/- {std_d:.4f}")
-        
-    # Determine plot dimensions from importance if possible
-    # Just take top single groups
-    # Flatten stats to find best singles
-    single_imps = []
-    for g, mean_d, _ in stats_g:
-        if len(g) == 1:
-            single_imps.append((g[0], mean_d))
-    
-    if len(single_imps) >= 2:
-        single_imps.sort(key=lambda x: x[1], reverse=True)
-        plot_dim1 = single_imps[0][0]
-        plot_dim2 = single_imps[1][0]
-        
-        # Compute importance proportions
-        total_imp = sum(max(0, imp) for _, imp in single_imps)  # Sum of positive importance
-        if total_imp > 0:
-            imp1_pct = 100 * max(0, single_imps[0][1]) / total_imp
-            imp2_pct = 100 * max(0, single_imps[1][1]) / total_imp
-        else:
-            imp1_pct, imp2_pct = 50, 50  # Default equal if no positive importance
-        
-        importance_footnote = f"Importance: z{plot_dim1+1}={imp1_pct:.0f}%, z{plot_dim2+1}={imp2_pct:.0f}%"
-        print(f"[Eval] Updated plotting axes to Top-2 Single contributors: z{plot_dim1+1} and z{plot_dim2+1}")
-        print(f"[Eval] {importance_footnote}")
-    else:
-        # Fallback to pair if it's dominant or defaults
-        plot_dim1, plot_dim2 = 0, 1 # Default
-        importance_footnote = None  # No proportion available
-        if len(pair) == 2:
-             plot_dim1, plot_dim2 = pair[0], pair[1]
-             print(f"[Eval] Using correlated pair for axes: z{plot_dim1+1}, z{plot_dim2+1}")
-
-except AssertionError as e_gate:
-    print(f"\n[Eval] SKIP Z Importance: {e_gate}")
-    plot_dim1, plot_dim2 = 0, 1 # Default
-    importance_footnote = None
-except Exception as e_imp:
-    print(f"\n[Eval] Z Importance Analysis failed: {e_imp}")
-    plot_dim1, plot_dim2 = 0, 1 # Default
+except Exception as e:
+    print(f"[Eval] Dimension selection failed: {e}")
+    plot_dim1, plot_dim2 = 0, 1
     importance_footnote = None
     for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
         if hasattr(vae_model, attr):
             print(f"[Eval]   Found relevant attribute: {attr}")
 
-    # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
-    # This focuses on the core structure rather than stretching to include outliers
-    x_lim_fixed = (-0.1, 0.4)  # z1 axis
-    y_lim_fixed = (-0.2, 0.7)  # z2 axis
+# --- AFTER try/except: Latent plotting setup ---
+# All code from here should be at module level (no indentation)
+print(f"\n[Eval] Selected latent dimensions for plotting: z{plot_dim1+1} and z{plot_dim2+1}")
+
+# Default labels (will be overwritten by SHAP-based labels if available)
+label_x = "Latent Dimension 1"
+label_y = "Latent Dimension 2"
+
+# Calculate robust default axis limits (global)
+# This ensures they are defined even if subsets are empty
+x_lim_fixed = np.percentile(mu_z[:, plot_dim1], [0.5, 99.5])
+y_lim_fixed = np.percentile(mu_z[:, plot_dim2], [0.5, 99.5])
+
+# --- SHAP Attribution (Running on Selected Dimensions) ---
+print(f"\n[Eval] SHAP attribution for selected latent dimensions: {label_x}, {label_y}...")
+try:
+    import shap
+    # Use simple background from the STANDARDIZED input (X_all_np)
+    n_background = min(100, len(X_all_np))
+    n_explain = min(100, len(X_all_np))
     
-    # Count how many points fall outside these limits
-    outside_mask = (mu_z[:, 0] < -0.1) | (mu_z[:, 0] > 0.4) | (mu_z[:, 1] < -0.2) | (mu_z[:, 1] > 0.7)
-    n_outside = outside_mask.sum()
-    print(f"[Eval] Using fixed axis limits x={x_lim_fixed}, y={y_lim_fixed}. {n_outside} points ({100*n_outside/len(mu_z):.2f}%) fall outside.")
+    rng_shap = np.random.default_rng(42)
+    bg_idx = rng_shap.choice(len(X_all_np), n_background, replace=False)
+    background = X_all_np[bg_idx]
     
-    # --- Latent Dimension Correlation Analysis ---
-    # Analyze what each latent dimension correlates with to generate descriptive labels
-    print("\n[Eval] Analyzing latent dimension correlations...")
+    explain_idx = rng_shap.choice(len(X_all_np), n_explain, replace=False)
+    X_explain = X_all_np[explain_idx]
     
-    # Features to correlate with
-    correlation_features = {}
-    if log_y_col in df_pred.columns:
-        correlation_features['Log Price'] = df_pred[log_y_col].astype(float).values
-    if price_col in df_pred.columns:
-        correlation_features['Price'] = df_pred[price_col].astype(float).values
+    # Define wrapper to get ONLY the selected dimensions
+    def encoder_subset(x_batch):
+        if isinstance(x_batch, np.ndarray):
+            x_batch = torch.from_numpy(x_batch).float().to(DEVICE)
+        with torch.no_grad():
+            mu, _ = vae_model.encode(x_batch)
+            # Select the dimensions we strictly care about
+            return mu[:, [plot_dim1, plot_dim2]].cpu().numpy()
+
+    import time
+    start = time.time()
     
-    # Size features
-    size_cols = ["gross_sqft", "gross_square_feet", "land_sqft", "land_square_feet", "sqft", "total_units"]
-    size_col = next((c for c in size_cols if c in df_pred.columns), None)
-    if size_col:
-        correlation_features['Size'] = pd.to_numeric(df_pred[size_col], errors='coerce').values
+    explainer = shap.KernelExplainer(encoder_subset, background)
+    shap_values = explainer.shap_values(X_explain)
     
-    # Year features
-    year_cols = ["year_built", "yearbuilt", "construction_year"]
-    year_col = next((c for c in year_cols if c in df_pred.columns), None)
-    if year_col:
-        correlation_features['Year Built'] = pd.to_numeric(df_pred[year_col], errors='coerce').values
+    elapsed = time.time() - start
+    print(f"[Eval]   SHAP completed in {elapsed:.1f}s")
     
-    # Compute correlations
-    z1_correlations = {}
-    z2_correlations = {}
-    for feat_name, feat_values in correlation_features.items():
-        # Only compute for valid (finite) values
-        valid_mask = np.isfinite(feat_values) & np.isfinite(mu_z[:, 0])
-        if valid_mask.sum() > 100:
-            corr_z1 = np.corrcoef(mu_z[valid_mask, 0], feat_values[valid_mask])[0, 1]
-            corr_z2 = np.corrcoef(mu_z[valid_mask, 1], feat_values[valid_mask])[0, 1]
-            z1_correlations[feat_name] = corr_z1
-            z2_correlations[feat_name] = corr_z2
-            print(f"[Eval]   {feat_name}: z1 corr={corr_z1:.3f}, z2 corr={corr_z2:.3f}")
+    shap_x, shap_y = None, None
     
-    # Auto-label based on top 3 correlated features
-    def get_label_for_dim(corr_dict, dim_num):
-        if not corr_dict:
-            return f"z{dim_num}"
-        # Sort features by absolute correlation (descending)
-        sorted_feats = sorted(corr_dict.keys(), key=lambda k: abs(corr_dict[k]), reverse=True)
-        top_3 = sorted_feats[:3]
-        # Create label with top 3 features
-        feat_strs = []
-        for feat in top_3:
-            corr = corr_dict[feat]
-            if abs(corr) >= 0.1:  # Include if correlation is non-trivial
-                direction = "+" if corr > 0 else "-"
-                feat_strs.append(f"{direction}{feat}")
-        if feat_strs:
-            return f"z{dim_num} ({', '.join(feat_strs)})"
+    if isinstance(shap_values, list) and len(shap_values) >= 2:
+        shap_x = shap_values[0]
+        shap_y = shap_values[1]
+    elif isinstance(shap_values, np.ndarray):
+        if shap_values.ndim == 3: 
+            shap_x = shap_values[:, :, 0]
+            shap_y = shap_values[:, :, 1]
+        elif shap_values.ndim == 2:
+            shap_x = shap_values
+    
+    # Feature Renaming Map (same as before)
+    FEATURE_RENAMES = {
+        'building_sales_sum': 'Bldg Sales Vol',
+        'unit_sales_mean_roll2': 'Recent Trend',
+        'unit_sales_mean_cum': 'Avg Cumul Sales',
+        'unique_units': 'Unit Count',
+        'log_gross_sqft': 'Log Size',
+        'gross_sqft': 'Size',
+        'year_built': 'Year Built',
+        'log_sale_price': 'Log Price',
+        'sale_price': 'Price'
+    }
+    
+    def format_shap_label(z_shap, dim_idx):
+        """Generate descriptive label from SHAP importance - no z{n} numbering."""
+        if z_shap is None: return None
+        z_imp = np.abs(z_shap).mean(axis=0)
+        total_imp = z_imp.sum() + 1e-9
+        top3_idx = np.argsort(z_imp)[-3:][::-1]
+        parts = []
+        for i in top3_idx:
+            feat_raw = feature_names_x_out[i]
+            feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) 
+            pct = (z_imp[i] / total_imp) * 100
+            parts.append(f"{pct:.0f}% {feat_name}")
+        # Return just the descriptive parts, no z{n} prefix
+        return f"({', '.join(parts)})"
+
+    if shap_x is not None:
+        lbl = format_shap_label(shap_x, plot_dim1)
+        if lbl: label_x = lbl.replace("\n", " ")
+
+    if shap_y is not None:
+        lbl = format_shap_label(shap_y, plot_dim2)
+        if lbl: label_y = lbl.replace("\n", " ")
+    
+    print(f"[Eval]   SHAP-based labels: '{label_x}', '{label_y}'")
+
+except Exception as e:
+    print(f"[Eval]   SHAP attribution failed: {e}")
+
+
+
+
+# Helper for KDE density contours
+def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
+    """Add KDE density contour lines to a plot."""
+    if not HAVE_SCIPY:
+        return
+    try:
+        from scipy.stats import gaussian_kde
+        xy = np.vstack([x, y])
+        kde = gaussian_kde(xy)
+        xmin, xmax = x.min(), x.max()
+        ymin, ymax = y.min(), y.max()
+        xi, yi = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+        zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+        ax.contour(xi, yi, zi, levels=levels, colors=color, alpha=alpha, linewidths=0.8)
+    except Exception as e:
+        print(f"[Eval] Contour error: {e}")
+
+# --- 7a-ORIG. ORIGINAL Simple latent scatter by price deciles (for comparison) ---
+log_price_all = df_pred[log_y_col].astype(float).values
+mask_finite_price = np.isfinite(log_price_all)
+
+if mask_finite_price.sum() > 0:
+    # Compute decile edges on finite values
+    decile_edges = np.quantile(log_price_all[mask_finite_price], np.linspace(0, 1, 11))
+    decile_idx = np.full_like(log_price_all, fill_value=-1, dtype=int)
+    decile_idx[mask_finite_price] = np.searchsorted(decile_edges[1:-1], 
+                                                        log_price_all[mask_finite_price], side="right")
+    valid_mask = decile_idx >= 0
+    
+    fig, ax = plt.subplots(figsize=(7, 6))
+    sc = ax.scatter(mu_z[valid_mask, plot_dim1], mu_z[valid_mask, plot_dim2],
+                    c=decile_idx[valid_mask], s=5, alpha=0.6, cmap="viridis")
+    cbar = plt.colorbar(sc, ax=ax)
+    cbar.set_label("Sale-price decile (0=lowest, 9=highest)")
+    ax.set_xlabel(f"z{plot_dim1+1}")
+    ax.set_ylabel(f"z{plot_dim2+1}")
+    ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by sale-price deciles\n(Original Simple Version)",
+                    fontsize=12, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    save_figure("latent_space_price_decile_orig.png")
+    plt.show()
+
+# --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
+
+# Filter: require price >= $100,000 (log >= 11.51) to exclude anomalies
+MIN_PRICE_LOG = np.log(100_000)  # ~11.51
+mask_valid_price = np.isfinite(log_price_all) & (log_price_all >= MIN_PRICE_LOG)
+
+# Define Axis Limits based on selected dimensions (Robust 99% interval)
+# This replaces any hardcoded limits
+if mask_valid_price.sum() > 100:
+    z_vals_all = mu_z[mask_valid_price]
+    x_lim_fixed = np.percentile(z_vals_all[:, plot_dim1], [0.5, 99.5])
+    y_lim_fixed = np.percentile(z_vals_all[:, plot_dim2], [0.5, 99.5])
+    # Add slight buffer
+    x_pad = (x_lim_fixed[1] - x_lim_fixed[0]) * 0.1
+    y_pad = (y_lim_fixed[1] - y_lim_fixed[0]) * 0.1
+    x_lim_fixed = (x_lim_fixed[0]-x_pad, x_lim_fixed[1]+x_pad)
+    y_lim_fixed = (y_lim_fixed[0]-y_pad, y_lim_fixed[1]+y_pad)
+    
+    print(f"[Eval] Dynamic axis limits for z{plot_dim1+1}/z{plot_dim2+1}: X={x_lim_fixed}, Y={y_lim_fixed}")
+
+print(f"[Eval] Price filter: {mask_valid_price.sum()} / {np.isfinite(log_price_all).sum()} " +
+        f"properties with sale price >= $100K")
+
+if mask_valid_price.sum() > 100:
+    valid_log_price = log_price_all[mask_valid_price]
+    valid_z_price = mu_z[mask_valid_price]
+    
+    # --- VERSION 1: Scatter + Contour ---
+    fig, ax = plt.subplots(figsize=(7, 6))
+    
+    # Add density contours first (behind scatter)
+    add_density_contours(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], ax, 
+                        levels=6, color='white', alpha=0.7)
+    
+    # Shuffle points to prevent ordering bias (last-plotted points appear on top)
+    np.random.seed(42)  # Reproducible
+    shuffle_idx = np.random.permutation(len(valid_log_price))
+    z_shuffled = valid_z_price[shuffle_idx]
+    price_shuffled = valid_log_price[shuffle_idx]
+    
+    # Scatter with continuous log-price coloring
+    # Using 'viridis' - perceptually uniform, colorblind-friendly, dark→bright = low→high
+    # Cap vmax at $250M as per user request (consistent with domain)
+    vmax_cap = np.log(250_000_000)
+    
+    sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
+                    c=price_shuffled, s=8, alpha=0.5, cmap='viridis',
+                    edgecolors='none', zorder=2, vmax=vmax_cap)  # Cap color mapping
+    
+    # Add Graded Density Contours Overlay
+    add_graded_density_contours(ax, z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], x_lim_fixed, y_lim_fixed)
+    
+    cbar = plt.colorbar(sc, ax=ax, extend='max') # Show arrow for values > $250M
+    cbar.set_label("Sale Price", fontsize=10)
+    
+    # Log-scale tick labels
+    vmin, vmax = valid_log_price.min(), vmax_cap
+    log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
+                    np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
+                    np.log(10_000_000), np.log(25_000_000), np.log(50_000_000),
+                    np.log(100_000_000), np.log(250_000_000)]
+    log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M',
+                    '$100M', '$250M']
+    
+    # Filter to range and always include min/max
+    valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if vmin <= t <= vmax]
+    
+    # Format price with B for billions
+    def format_price(val):
+        price = np.exp(val)
+        if price >= 1_000_000_000:
+            return f"${price/1_000_000_000:.1f}B"
+        elif price >= 1_000_000:
+            return f"${price/1_000_000:.1f}M"
         else:
-            return f"z{dim_num}"
+            return f"${price/1_000:.0f}K"
     
-    z1_label = get_label_for_dim(z1_correlations, 1)
-    z2_label = get_label_for_dim(z2_correlations, 2)
-    print(f"[Eval] Auto-generated latent labels: z1='{z1_label}', z2='{z2_label}'")
+    # Strategy: Start with vmin, add intermediate standard ticks that aren't too close, end with vmax
+    final_ticks = [vmin]
+    final_labels = [format_price(vmin)]
     
-    # --- Encoder Weight Analysis ---
-    # Trace back which INPUT features contribute most to each latent dimension
-    print("\n[Eval] Analyzing encoder weights for input feature contributions...")
-    try:
-        # Get encoder weights from the model
-        encoder_weights = None
-        if hasattr(vae_model, 'encoder'):
-            # Try to get the first linear layer weights
-            for name, param in vae_model.encoder.named_parameters():
-                if 'weight' in name and param.dim() == 2:
-                    encoder_weights = param.detach().cpu().numpy()
-                    print(f"[Eval]   Found encoder layer: {name}, shape={encoder_weights.shape}")
-                    break
-        
-        if encoder_weights is not None and len(feature_names_x_out) > 0:
-            # Get output weights from last encoder layer to latent mean
-            latent_weights = None
-            for name, param in vae_model.named_parameters():
-                if 'mu' in name.lower() and 'weight' in name and param.dim() == 2:
-                    latent_weights = param.detach().cpu().numpy()
-                    print(f"[Eval]   Found latent mean layer: {name}, shape={latent_weights.shape}")
-                    break
+    # Threshold for "too close" in log space (approx 10% of range)
+    log_range = vmax - vmin
+    threshold = 0.05 * log_range if log_range > 0 else 0.1
+    
+    for t, l in valid_ticks:
+        # Skip if too close to min or max
+        if abs(t - vmin) > threshold and abs(t - vmax) > threshold:
+            final_ticks.append(t)
+            final_labels.append(l)
             
-            if latent_weights is not None:
-                # Analyze which input features have highest magnitude weights to each latent dim
-                n_latents = min(2, latent_weights.shape[0])
-                for lat_idx in range(n_latents):
-                    weights_to_latent = np.abs(latent_weights[lat_idx, :])
-                    # Sum up contribution through encoder if shapes allow
-                    if encoder_weights.shape[0] == latent_weights.shape[1]:
-                        # Direct connection: latent <- hidden <- input
-                        input_contrib = np.abs(encoder_weights).sum(axis=0)
-                    else:
-                        input_contrib = weights_to_latent
-                    
-                    # Get top contributing features
-                    if len(input_contrib) == len(feature_names_x_out):
-                        top_k = min(5, len(feature_names_x_out))
-                        top_indices = np.argsort(input_contrib)[-top_k:][::-1]
-                        top_features = [(feature_names_x_out[i], input_contrib[i]) for i in top_indices]
-                        print(f"[Eval]   z{lat_idx+1} top input features: {[(f, f'{w:.3f}') for f, w in top_features]}")
-    except Exception as e:
-        print(f"[Eval]   Encoder weight analysis failed: {e}")
+    final_ticks.append(vmax)
+    final_labels.append(format_price(vmax))
     
+    cbar.set_ticks(final_ticks)
+    cbar.set_ticklabels(final_labels)
+    
+    ax.set_xlabel(label_x, fontsize=11)
+    ax.set_ylabel(label_y, fontsize=11)
+    
+    # Apply fixed axis limits
+    ax.set_xlim(x_lim_fixed)
+    ax.set_ylim(y_lim_fixed)
+    # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
+    
+    # Title (no subtitle)
+    ax.set_title("Latent Space by Price", fontsize=14, fontweight='bold', pad=8)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(False)  # No gridlines
+    
+    # Add importance footnote if available
+    if 'importance_footnote' in dir() and importance_footnote:
+        plt.figtext(0.5, 0.01, importance_footnote, ha='center', fontsize=9, fontstyle='italic')
+    
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95] if importance_footnote else [0, 0, 1, 1])
+    save_figure("latent_space_price.png")
+    plt.show()
+    
+    # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
+    fig, ax = plt.subplots(figsize=(7, 6))
+    
+    # Same price colormap as scatter (viridis - perceptually uniform)
+    # Create the main hexbin for colorbar (opaque)
+    # Cap vmax at $250M (consistent with scatter)
+    vmax_cap = np.log(250_000_000)
+    hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
+                    C=valid_log_price, reduce_C_function=np.mean,
+                    gridsize=40, cmap='viridis', mincnt=1, linewidths=0.2, vmax=vmax_cap)
+    
+    # Calculate transparency based on density - SCALED LOGARITHMICALLY
+    counts = hb.get_array()
+    
+    # Get true counts (hb.get_array() is means if C is set)
+    # Re-run for counts
+    hb_counts = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
+                           gridsize=40, mincnt=1, alpha=0) 
+    bin_counts = hb_counts.get_array()
+    
+    if len(bin_counts) == len(hb.get_array()):
+        # Log-scale mapping for alpha: log(count)
+        # Handle count=1 gracefully (log(1)=0)
+        log_counts = np.log10(bin_counts)
+        min_log = log_counts.min()
+        max_log = log_counts.max()
+        
+        # Normalize to [0.2, 1.0] - Ensure even 1 count is slightly visible (0.2)
+        if max_log > min_log:
+            alpha_vals = 0.2 + 0.8 * (log_counts - min_log) / (max_log - min_log)
+        else:
+            alpha_vals = np.ones_like(bin_counts) * 0.8
+            
+        # Set alpha for each hexagon individually
+        facecolors = hb.get_facecolors()
+        if len(facecolors) == len(alpha_vals):
+            facecolors[:, 3] = alpha_vals
+            hb.set_facecolors(facecolors)
+        else:
+             # Robust way: Re-map colors manually
+             from matplotlib import cm
+             cmap = cm.get_cmap('viridis')
+             norm = plt.Normalize(vmin=final_ticks[0], vmax=final_ticks[-1])
+             mapped_colors = cmap(norm(hb.get_array()))
+             mapped_colors[:, 3] = alpha_vals
+             hb.set_facecolors(mapped_colors)
 
+    cbar = plt.colorbar(hb, ax=ax, extend='max')
+    cbar.set_label("Mean Sale Price", fontsize=10)
+    # Ensure colorbar is opaque
+    cbar.solids.set_alpha(1.0)
+    
+    # Add Density Contours removed for Hexbin (relies on Alpha Transparency)
+    # Add annotation for transparency
+    ax.text(0.02, 0.98, "Opacity ∝ Density\n(Darker/Solid = Undersampled)", 
+            transform=ax.transAxes, fontsize=8, verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, pad=0.3),
+            zorder=4)
+    
+    # Same log-scale labels
+    # Same log-scale labels with enforced min/max
+    cbar.set_ticks(final_ticks)
+    cbar.set_ticklabels(final_labels)
+    
+    ax.set_xlabel(label_x, fontsize=11)
+    ax.set_ylabel(label_y, fontsize=11)
+    
+    # Apply fixed axis limits
+    ax.set_xlim(x_lim_fixed)
+    ax.set_ylim(y_lim_fixed)
+    
+    # Title - no subtitle
+    ax.set_title("Latent Space by Price", fontweight='bold', fontsize=14)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(False) # Strict removal
+    
+    plt.tight_layout()
+    save_figure("latent_space_price_hexbin.png")
+    plt.show()
 
-    label_x = f"z{plot_dim1+1}"
-    label_y = f"z{plot_dim2+1}"
+# --- 7a-bis. Hexbin density plot for latent space (count only) ---
+if mask_valid_price.sum() > 100:
+    fig, ax = plt.subplots(figsize=(7, 6))
     
-    # Calculate robust default axis limits (global)
-    # This ensures they are defined even if subsets are empty
-    x_lim_fixed = np.percentile(mu_z[:, plot_dim1], [0.5, 99.5])
-    y_lim_fixed = np.percentile(mu_z[:, plot_dim2], [0.5, 99.5])
+    # White→Blue/Black colormap: transparent/light in sparse areas, dark in dense areas
+    # Reverting to explicit colormap with legend as requested
+    # Use bins='log' to handle skewed density (power law likely)
+    hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
+                    gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2, bins='log')
     
-    # --- SHAP Attribution (Running on Selected Dimensions) ---
-    print(f"\n[Eval] SHAP attribution for selected latent dimensions: {label_x}, {label_y}...")
-    try:
-        import shap
-        # Use simple background from the STANDARDIZED input (X_all_np)
-        n_background = min(100, len(X_all_np))
-        n_explain = min(100, len(X_all_np))
-        
-        rng_shap = np.random.default_rng(42)
-        bg_idx = rng_shap.choice(len(X_all_np), n_background, replace=False)
-        background = X_all_np[bg_idx]
-        
-        explain_idx = rng_shap.choice(len(X_all_np), n_explain, replace=False)
-        X_explain = X_all_np[explain_idx]
-        
-        # Define wrapper to get ONLY the selected dimensions
-        def encoder_subset(x_batch):
-            if isinstance(x_batch, np.ndarray):
-                x_batch = torch.from_numpy(x_batch).float().to(DEVICE)
-            with torch.no_grad():
-                mu, _ = vae_model.encode(x_batch)
-                # Select the dimensions we strictly care about
-                return mu[:, [plot_dim1, plot_dim2]].cpu().numpy()
+    # Colorbar is needed as a legend
+    cbar = plt.colorbar(hb, ax=ax)
+    max_c = int(np.power(10, hb.get_array().max())) if hb.get_array().size > 0 else 0
+    cbar.set_label("Log Count", fontsize=10)
+    
+    # Create simple integer ticks: 0, 25%, 50%, 75%, Max (rounded)
+    # Log-scale ticks: 1, 10, 100, 1000...
+    if max_c > 0:
+        max_pow = int(np.ceil(np.log10(max_c)))
+        tick_vals_log = np.arange(0, max_pow + 1) # 10^0 to 10^max
+        tick_vals = tick_vals_log # bins='log' returns log10(count)
+        tick_labels = [f"{int(10**t):,}" for t in tick_vals]
+        # Filter if too many
+        if len(tick_vals) > 6:
+            tick_vals = tick_vals[::2]
+            tick_labels = tick_labels[::2]
+            
+        cbar.set_ticks(tick_vals)
+        cbar.set_ticklabels(tick_labels)
+    
+    ax.set_xlabel(label_x, fontsize=11)
+    ax.set_ylabel(label_y, fontsize=11)
+    
+    # Apply fixed axis limits
+    ax.set_xlim(x_lim_fixed)
+    ax.set_ylim(y_lim_fixed)
+    
+    # Standardized Title
+    ax.set_title("Latent Space Density", fontweight='bold', fontsize=14)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(False) # Strict removal
+    
+    plt.tight_layout()
+    save_figure("latent_space_density.png")
+    plt.show()
 
-        import time
-        start = time.time()
-        
-        explainer = shap.KernelExplainer(encoder_subset, background)
-        shap_values = explainer.shap_values(X_explain)
-        
-        elapsed = time.time() - start
-        print(f"[Eval]   SHAP completed in {elapsed:.1f}s")
-        
-        shap_x, shap_y = None, None
-        
-        if isinstance(shap_values, list) and len(shap_values) >= 2:
-            shap_x = shap_values[0]
-            shap_y = shap_values[1]
-        elif isinstance(shap_values, np.ndarray):
-            if shap_values.ndim == 3: 
-                shap_x = shap_values[:, :, 0]
-                shap_y = shap_values[:, :, 1]
-            elif shap_values.ndim == 2:
-                shap_x = shap_values
-        
-        # Feature Renaming Map (same as before)
-        FEATURE_RENAMES = {
-            'building_sales_sum': 'Bldg Sales Vol',
-            'unit_sales_mean_roll2': 'Recent Trend',
-            'unit_sales_mean_cum': 'Avg Cumul Sales',
-            'unique_units': 'Unit Count',
-            'log_gross_sqft': 'Log Size',
-            'gross_sqft': 'Size',
-            'year_built': 'Year Built',
-            'log_sale_price': 'Log Price',
-            'sale_price': 'Price'
-        }
-        
-        def format_shap_label(z_shap, dim_idx):
-            if z_shap is None: return None
-            z_imp = np.abs(z_shap).mean(axis=0)
-            total_imp = z_imp.sum() + 1e-9
-            top3_idx = np.argsort(z_imp)[-3:][::-1]
-            parts = []
-            for i in top3_idx:
-                feat_raw = feature_names_x_out[i]
-                feat_name = FEATURE_RENAMES.get(feat_raw, feat_raw) 
-                pct = (z_imp[i] / total_imp) * 100
-                parts.append(f"{pct:.0f}% {feat_name}")
-            return f"z{dim_idx+1}\n({', '.join(parts)})"
+# --- 7b. Latent colored by SIZE (Square Footage) ---
+size_candidates = ["gross_sqft", "land_sqft", "gross_square_feet", "land_area", "sqft", "area"]
+size_col = next((c for c in size_candidates if c in df_pred.columns), None)
 
-        if shap_x is not None:
-            lbl = format_shap_label(shap_x, plot_dim1)
-            if lbl: label_x = lbl.replace("\n", " ")
-
-        if shap_y is not None:
-            lbl = format_shap_label(shap_y, plot_dim2)
-            if lbl: label_y = lbl.replace("\n", " ")
-        
-        print(f"[Eval]   SHAP-based labels: '{label_x}', '{label_y}'")
-
-    except Exception as e:
-        print(f"[Eval]   SHAP attribution failed: {e}")
-
-
+if size_col:
+    print(f"[Eval] Using '{size_col}' for Size-based Latent Viz.")
+    size_vals = df_pred[size_col].astype(float).values
+    mask_valid_size = np.isfinite(size_vals) & (size_vals > 0)
     
-    
-    # Helper for KDE density contours
-    def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
-        """Add KDE density contour lines to a plot."""
-        if not HAVE_SCIPY:
-            return
-        try:
-            from scipy.stats import gaussian_kde
-            xy = np.vstack([x, y])
-            kde = gaussian_kde(xy)
-            xmin, xmax = x.min(), x.max()
-            ymin, ymax = y.min(), y.max()
-            xi, yi = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
-            zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
-            ax.contour(xi, yi, zi, levels=levels, colors=color, alpha=alpha, linewidths=0.8)
-        except Exception as e:
-            print(f"[Eval] Contour error: {e}")
-    
-    # --- 7a-ORIG. ORIGINAL Simple latent scatter by price deciles (for comparison) ---
-    log_price_all = df_pred[log_y_col].astype(float).values
-    mask_finite_price = np.isfinite(log_price_all)
-    
-    if mask_finite_price.sum() > 0:
-        # Compute decile edges on finite values
-        decile_edges = np.quantile(log_price_all[mask_finite_price], np.linspace(0, 1, 11))
-        decile_idx = np.full_like(log_price_all, fill_value=-1, dtype=int)
-        decile_idx[mask_finite_price] = np.searchsorted(decile_edges[1:-1], 
-                                                         log_price_all[mask_finite_price], side="right")
-        valid_mask = decile_idx >= 0
-        
-        fig, ax = plt.subplots(figsize=(7, 6))
-        sc = ax.scatter(mu_z[valid_mask, plot_dim1], mu_z[valid_mask, plot_dim2],
-                        c=decile_idx[valid_mask], s=5, alpha=0.6, cmap="viridis")
-        cbar = plt.colorbar(sc, ax=ax)
-        cbar.set_label("Sale-price decile (0=lowest, 9=highest)")
-        ax.set_xlabel(f"z{plot_dim1+1}")
-        ax.set_ylabel(f"z{plot_dim2+1}")
-        ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by sale-price deciles\n(Original Simple Version)",
-                     fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        plt.tight_layout()
-        save_figure("latent_space_price_decile_orig.png")
-        plt.show()
-    
-    # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
-    
-    # Filter: require price >= $100,000 (log >= 11.51) to exclude anomalies
-    MIN_PRICE_LOG = np.log(100_000)  # ~11.51
-    mask_valid_price = np.isfinite(log_price_all) & (log_price_all >= MIN_PRICE_LOG)
-    
-    # Define Axis Limits based on selected dimensions (Robust 99% interval)
-    # This replaces any hardcoded limits
-    if mask_valid_price.sum() > 100:
-        z_vals_all = mu_z[mask_valid_price]
-        x_lim_fixed = np.percentile(z_vals_all[:, plot_dim1], [0.5, 99.5])
-        y_lim_fixed = np.percentile(z_vals_all[:, plot_dim2], [0.5, 99.5])
-        # Add slight buffer
-        x_pad = (x_lim_fixed[1] - x_lim_fixed[0]) * 0.1
-        y_pad = (y_lim_fixed[1] - y_lim_fixed[0]) * 0.1
-        x_lim_fixed = (x_lim_fixed[0]-x_pad, x_lim_fixed[1]+x_pad)
-        y_lim_fixed = (y_lim_fixed[0]-y_pad, y_lim_fixed[1]+y_pad)
-        
-        print(f"[Eval] Dynamic axis limits for z{plot_dim1+1}/z{plot_dim2+1}: X={x_lim_fixed}, Y={y_lim_fixed}")
-    
-    print(f"[Eval] Price filter: {mask_valid_price.sum()} / {np.isfinite(log_price_all).sum()} " +
-          f"properties with sale price >= $100K")
-    
-    if mask_valid_price.sum() > 100:
-        valid_log_price = log_price_all[mask_valid_price]
-        valid_z_price = mu_z[mask_valid_price]
+    if mask_valid_size.sum() > 100:
+        log_size = np.log10(size_vals[mask_valid_size])
+        valid_z_size = mu_z[mask_valid_size]
         
         # --- VERSION 1: Scatter + Contour ---
         fig, ax = plt.subplots(figsize=(7, 6))
         
-        # Add density contours first (behind scatter)
-        add_density_contours(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], ax, 
+        add_density_contours(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], ax,
                             levels=6, color='white', alpha=0.7)
         
-        # Shuffle points to prevent ordering bias (last-plotted points appear on top)
-        np.random.seed(42)  # Reproducible
-        shuffle_idx = np.random.permutation(len(valid_log_price))
-        z_shuffled = valid_z_price[shuffle_idx]
-        price_shuffled = valid_log_price[shuffle_idx]
-        
-        # Scatter with continuous log-price coloring
-        sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
-                        c=price_shuffled, s=8, alpha=0.5, cmap="viridis",
-                        edgecolors='none', zorder=2)
+        sc = ax.scatter(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], c=log_size, s=8, alpha=0.5, 
+                        cmap="magma", edgecolors='none', zorder=2)
         
         cbar = plt.colorbar(sc, ax=ax)
-        cbar.set_label("Sale Price", fontsize=10)
-        
-        # Log-scale tick labels - extended to billions
-        vmin, vmax = valid_log_price.min(), valid_log_price.max()
-        log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
-                     np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
-                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000),
-                     np.log(100_000_000), np.log(250_000_000), np.log(500_000_000),
-                     np.log(1_000_000_000), np.log(2_500_000_000), np.log(5_000_000_000)]
-        log_labels = ['$100K', '$250K', '$500K', '$1M', '$2.5M', '$5M', '$10M', '$25M', '$50M',
-                      '$100M', '$250M', '$500M', '$1B', '$2.5B', '$5B']
-        
-        # Filter to range and always include min/max
-        valid_ticks = [(t, l) for t, l in zip(log_ticks, log_labels) if vmin <= t <= vmax]
-        
-        # Format price with B for billions
-        def format_price(val):
-            price = np.exp(val)
-            if price >= 1_000_000_000:
-                return f"${price/1_000_000_000:.1f}B"
-            elif price >= 1_000_000:
-                return f"${price/1_000_000:.1f}M"
-            else:
-                return f"${price/1_000:.0f}K"
-        
-        final_ticks = [vmin] + [t for t, l in valid_ticks] + [vmax]
-        final_labels = [format_price(vmin)] + [l for t, l in valid_ticks] + [format_price(vmax)]
-        # Remove duplicates
-        seen = set()
-        unique_ticks, unique_labels = [], []
-        for t, l in zip(final_ticks, final_labels):
-            if round(t, 2) not in seen:
-                seen.add(round(t, 2))
-                unique_ticks.append(t)
-                unique_labels.append(l)
-        cbar.set_ticks(unique_ticks)
-        cbar.set_ticklabels(unique_labels)
+        cbar.set_label("Square Footage", fontsize=10)
+        # Log-scale ticks for sqft
+        sqft_ticks = [2, 2.5, 3, 3.5, 4, 4.5, 5]  # log10 values
+        sqft_labels = ['100', '300', '1K', '3K', '10K', '30K', '100K']
+        vmin, vmax = log_size.min(), log_size.max()
+        valid_sqft = [(t, l) for t, l in zip(sqft_ticks, sqft_labels) if vmin <= t <= vmax]
+        if valid_sqft:
+            cbar.set_ticks([t for t, l in valid_sqft])
+            cbar.set_ticklabels([l for t, l in valid_sqft])
         
         ax.set_xlabel(label_x, fontsize=11)
         ax.set_ylabel(label_y, fontsize=11)
@@ -2011,276 +2111,30 @@ except Exception as e_imp:
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
         ax.set_ylim(y_lim_fixed)
-        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
-        
-        # Title centered on axes
-        ax.set_title("Latent Space by Price\nScatter with density contours", 
-                     fontsize=12, fontweight='bold', pad=8)
-        
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(False)  # No gridlines
-        
-        # Add importance footnote if available
-        if 'importance_footnote' in dir() and importance_footnote:
-            plt.figtext(0.5, 0.01, importance_footnote, ha='center', fontsize=9, fontstyle='italic')
-        
-        plt.tight_layout(rect=[0, 0.05, 1, 0.95] if importance_footnote else [0, 0, 1, 1])
-        save_figure("latent_space_price.png")
-        plt.show()
-        
-        # --- VERSION 2: Hexbin by price (mean log-price per bin) ---
-        fig, ax = plt.subplots(figsize=(7, 6))
-        
-        hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
-                       C=valid_log_price, reduce_C_function=np.mean,
-                       gridsize=40, cmap='viridis', mincnt=1, linewidths=0.2)
-        
-        cbar = plt.colorbar(hb, ax=ax)
-        cbar.set_label("Mean Sale Price", fontsize=10)
-        
-        # Same log-scale labels
-        if valid_ticks:
-            cbar.set_ticks([t for t, l in valid_ticks])
-            cbar.set_ticklabels([l for t, l in valid_ticks])
-        
-        ax.set_xlabel(label_x, fontsize=11)
-        ax.set_ylabel(label_y, fontsize=11)
-        
-        # Apply fixed axis limits
-        ax.set_xlim(x_lim_fixed)
-        ax.set_ylim(y_lim_fixed)
-        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
-        
-        # Apply fixed axis limits
-        ax.set_xlim(x_lim_fixed)
-        ax.set_ylim(y_lim_fixed)
-        
-        # Standardized Title (No Suptitle)
-        ax.set_title("Latent Space by Price\n(Hexbin of Mean Price)", fontweight='bold', fontsize=12)
-        
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(False) # Strict removal
-        
-        plt.tight_layout()
-        save_figure("latent_space_price_hexbin.png")
-        plt.show()
     
-    # --- 7a-bis. Hexbin density plot for latent space (count only) ---
-    if mask_valid_price.sum() > 100:
-        fig, ax = plt.subplots(figsize=(7, 6))
-        
-        hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
-                       gridsize=40, cmap='Blues', mincnt=1, linewidths=0.2)
-        
-        # Add min/max counts to colorbar per request
-        cbar = plt.colorbar(hb, ax=ax)
-        min_c, max_c = int(hb.get_array().min()), int(hb.get_array().max())
-        cbar.set_label(f"Count (Max={max_c})", fontsize=10) # User asked for max/min counts
-
-        
-        ax.set_xlabel(label_x, fontsize=11)
-        ax.set_ylabel(label_y, fontsize=11)
-        
-        # Apply fixed axis limits
-        ax.set_xlim(x_lim_fixed)
-        ax.set_ylim(y_lim_fixed)
-        
         # Standardized Title
-        ax.set_title("Latent Space Density\n(Hexbin Count)", fontweight='bold', fontsize=12)
+        ax.set_title("Latent Space by Size", fontweight='bold', fontsize=14)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.grid(False) # Strict removal
         
         plt.tight_layout()
-        save_figure("latent_space_density.png")
+        save_figure("latent_space_size.png")
         plt.show()
-
-    # --- 7b. Latent colored by SIZE (Square Footage) ---
-    size_candidates = ["gross_sqft", "land_sqft", "gross_square_feet", "land_area", "sqft", "area"]
-    size_col = next((c for c in size_candidates if c in df_pred.columns), None)
-    
-    if size_col:
-        print(f"[Eval] Using '{size_col}' for Size-based Latent Viz.")
-        size_vals = df_pred[size_col].astype(float).values
-        mask_valid_size = np.isfinite(size_vals) & (size_vals > 0)
         
-        if mask_valid_size.sum() > 100:
-            log_size = np.log10(size_vals[mask_valid_size])
-            valid_z_size = mu_z[mask_valid_size]
-            
-            # --- VERSION 1: Scatter + Contour ---
-            fig, ax = plt.subplots(figsize=(7, 6))
-            
-            add_density_contours(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], ax,
-                                levels=6, color='white', alpha=0.7)
-            
-            sc = ax.scatter(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], c=log_size, s=8, alpha=0.5, 
-                           cmap="magma", edgecolors='none', zorder=2)
-            
-            cbar = plt.colorbar(sc, ax=ax)
-            cbar.set_label("Square Footage", fontsize=10)
-            # Log-scale ticks for sqft
-            sqft_ticks = [2, 2.5, 3, 3.5, 4, 4.5, 5]  # log10 values
-            sqft_labels = ['100', '300', '1K', '3K', '10K', '30K', '100K']
-            vmin, vmax = log_size.min(), log_size.max()
-            valid_sqft = [(t, l) for t, l in zip(sqft_ticks, sqft_labels) if vmin <= t <= vmax]
-            if valid_sqft:
-                cbar.set_ticks([t for t, l in valid_sqft])
-                cbar.set_ticklabels([l for t, l in valid_sqft])
-            
-            ax.set_xlabel(label_x, fontsize=11)
-            ax.set_ylabel(label_y, fontsize=11)
-            
-            # Apply fixed axis limits
-            ax.set_xlim(x_lim_fixed)
-            ax.set_ylim(y_lim_fixed)
-        
-            # Standardized Title
-            ax.set_title(f"Latent Space by Size\n(Scatter + Density Contours: {size_col})", fontweight='bold', fontsize=12)
-            
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.grid(False) # Strict removal
-            
-            plt.tight_layout()
-            save_figure("latent_space_size.png")
-            plt.show()
-            
-            # --- VERSION 2: Hexbin by size ---
-            fig, ax = plt.subplots(figsize=(7, 6))
-            
-            hb = ax.hexbin(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], 
-                           C=log_size, reduce_C_function=np.mean,
-                           gridsize=40, cmap='magma', mincnt=1, linewidths=0.2)
-            
-            cbar = plt.colorbar(hb, ax=ax)
-            cbar.set_label("Mean Sq Ft", fontsize=10)
-            if valid_sqft:
-                cbar.set_ticks([t for t, l in valid_sqft])
-                cbar.set_ticklabels([l for t, l in valid_sqft])
-            
-            ax.set_xlabel(label_x, fontsize=11)
-            ax.set_ylabel(label_y, fontsize=11)
-            
-            # Apply fixed axis limits
-            ax.set_xlim(x_lim_fixed)
-            ax.set_ylim(y_lim_fixed)
-            # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
-        
-            fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
-            ax.set_title("Hexbin showing mean size per region", fontsize=9, color='gray', pad=3)
-            
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            
-            plt.tight_layout(rect=[0, 0, 1, 0.95])
-            save_figure("latent_space_size_hexbin.png")
-            plt.show()
-        else:
-            print("[Eval] Not enough valid size data for plot.")
-    else:
-        print("[Eval] No size/sqft column found; skipping Size latent plot.")
-
-    # --- 7c. Latent colored by Building Class (AGGREGATED) ---
-    bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
-    bldg_class_col = next((c for c in bldg_class_candidates if c in df_pred.columns), None)
-    
-    if bldg_class_col:
-        print(f"[Eval] Using '{bldg_class_col}' for Building Class Viz.")
-        
-        # Filter to same price range as price plots (>= $100K)
-        bldg_price_mask = mask_valid_price  # Reuse the mask from price plots
-        print(f"[Eval] Building class plots using {bldg_price_mask.sum()} properties with price >= $100K")
-        
-        bldg_z = mu_z[bldg_price_mask]
-        bldg_series_full = df_pred[bldg_class_col].astype(str)
-        
-        # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
-        bldg_series_raw = bldg_series_full[bldg_price_mask]
-        codes_raw, uniques_raw = pd.factorize(bldg_series_raw)
-        
+        # --- VERSION 2: Hexbin by size ---
         fig, ax = plt.subplots(figsize=(7, 6))
-        for code, label in enumerate(uniques_raw):
-            mask = codes_raw == code
-            if not np.any(mask):
-                continue
-            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=5, alpha=0.5, label=label)
-        ax.set_xlabel(label_x)
-        ax.set_ylabel(label_y)
-        ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by building class\n(Original Simple Version)",
-                     fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        n_classes = len(uniques_raw)
-        if n_classes <= 10:
-            ax.legend(title="Building class", fontsize=8)
-        else:
-            ax.legend(title="Building class (truncated)", fontsize=6, ncol=2)
-        plt.tight_layout()
-        save_figure("latent_space_bldg_orig.png")
-        plt.show()
         
-        # --- Enhanced version: Aggregate to first letter (major category) ---
-        # Use the filtered data from above (same properties as price plots)
-        bldg_series = bldg_series_full[bldg_price_mask].str[0].str.upper()
+        hb = ax.hexbin(valid_z_size[:, plot_dim1], valid_z_size[:, plot_dim2], 
+                        C=log_size, reduce_C_function=np.mean,
+                        gridsize=40, cmap='magma', mincnt=1, linewidths=0.2)
         
-        # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
-        # Order: Condos/Co-ops -> Multi-family Rental -> Houses -> Commercial -> Industrial -> Other
-        # This matches how typical NYC real estate listings organize property types
-        class_labels_ordered = [
-            # Most common residential (what buyers/renters search for)
-            ('R', 'Condominiums'),
-            ('D', 'Elevator Apartments'),
-            ('C', 'Walk-up Apartments'),
-            ('S', 'Mixed Residential'),
-            # Houses
-            ('A', '1-2 Family Houses'),
-            ('B', '2 Family Houses'),
-            # Commercial/Mixed-use
-            ('K', 'Retail/Stores'),
-            ('O', 'Office Buildings'),
-            ('H', 'Hotels'),
-            ('L', 'Lofts'),
-            # Industrial
-            ('E', 'Warehouses'),
-            ('F', 'Factories'),
-            ('G', 'Garages'),
-            # Special Purpose
-            ('I', 'Healthcare'),
-            ('J', 'Entertainment'),
-            ('M', 'Religious'),
-            ('N', 'Nursing/Asylums'),
-            ('P', 'Recreation (Indoor)'),
-            ('Q', 'Recreation (Outdoor)'),
-            ('T', 'Transportation'),
-            ('W', 'Educational'),
-            # Other
-            ('U', 'Utility'),
-            ('V', 'Vacant Land'),
-            ('Y', 'Government'),
-            ('Z', 'Miscellaneous'),
-        ]
-        class_labels = {k: v for k, v in class_labels_ordered}
-        
-        fig, ax = plt.subplots(figsize=(8, 6))
-        
-        # Use colormap with colors assigned in the PREDEFINED ORDER
-        # This ensures legend order matches color order
-        present_classes = [letter for letter, _ in class_labels_ordered if letter in bldg_series.values]
-        n_present = len(present_classes)
-        cmap = plt.cm.get_cmap('tab20', max(n_present, 1))
-        
-        # Plot in predefined order for color consistency, legend outside
-        for color_idx, letter in enumerate(present_classes):
-            mask = (bldg_series == letter).values
-            if not np.any(mask): 
-                continue
-            
-            lbl_full = class_labels.get(letter, letter)
-            ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, alpha=0.5, 
-                      color=cmap(color_idx), label=lbl_full, edgecolors='none')
+        cbar = plt.colorbar(hb, ax=ax)
+        cbar.set_label("Mean Sq Ft", fontsize=10)
+        if valid_sqft:
+            cbar.set_ticks([t for t, l in valid_sqft])
+            cbar.set_ticklabels([l for t, l in valid_sqft])
         
         ax.set_xlabel(label_x, fontsize=11)
         ax.set_ylabel(label_y, fontsize=11)
@@ -2288,58 +2142,188 @@ except Exception as e_imp:
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
         ax.set_ylim(y_lim_fixed)
-        
-        ax.set_title("Latent Space by Building Class", fontsize=12, fontweight='bold', pad=8)
-        
-        ax.grid(False) # Strict removal
-        
-        # Legend outside
-        ax.legend(fontsize=8, loc='center left', bbox_to_anchor=(1.02, 0.5), 
-                  framealpha=0.9, title="Building Class")
+        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
+    
+        ax.set_title("Latent Space by Size", fontweight='bold', fontsize=14)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        plt.tight_layout(rect=[0, 0, 0.85, 0.95]) # Make room for legend
-        save_figure("latent_space_bldg.png")
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_figure("latent_space_size_hexbin.png")
         plt.show()
+    else:
+        print("[Eval] Not enough valid size data for plot.")
+else:
+    print("[Eval] No size/sqft column found; skipping Size latent plot.")
 
-    plt.show()
-    
-    # --- 7d-NEW. Latent Marginal Distributions (Uniform Scale) ---
-    # Plot top dimensions used in scatter plots
-    dims_to_plot = [plot_dim1, plot_dim2]
-    n_dims = len(dims_to_plot)
-    
-    fig, axes = plt.subplots(1, n_dims, figsize=(4*n_dims, 3.5), sharey=True, sharex=True)
-    if n_dims == 1:
-        axes = [axes]
-    
-    # Compute global limit for x-axis
-    z_global_min = np.percentile(mu_z[:, dims_to_plot], 0.5)
-    z_global_max = np.percentile(mu_z[:, dims_to_plot], 99.5)
-    pad = (z_global_max - z_global_min) * 0.1
-    xlim_global = (z_global_min - pad, z_global_max + pad)
+# --- 7c. Latent colored by Building Class (AGGREGATED) ---
+bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
+bldg_class_col = next((c for c in bldg_class_candidates if c in df_pred.columns), None)
 
-    for i, d in enumerate(dims_to_plot):
-        ax = axes[i]
-        ax.hist(mu_z[:, d], bins=40, alpha=0.8, color='#3498db', 
-                edgecolor='white', linewidth=0.3, density=True)
-        
-        # Use automated label if available
-        # We need to construct the label again or pass it down?
-        # Re-use simple label for now
-        ax.set_xlabel(f"Latent Dim z{d+1}", fontsize=10)
-        if d == 0:
-            ax.set_ylabel("Density", fontsize=10)
-        
-        ax.set_xlim(xlim_global)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+if bldg_class_col:
+    print(f"[Eval] Using '{bldg_class_col}' for Building Class Viz.")
     
-    fig.suptitle("Latent Marginal Distributions (Uniform Scale)", fontsize=14, fontweight='bold', y=1.02)
+    # Filter to same price range as price plots (>= $100K)
+    bldg_price_mask = mask_valid_price  # Reuse the mask from price plots
+    print(f"[Eval] Building class plots using {bldg_price_mask.sum()} properties with price >= $100K")
+    
+    bldg_z = mu_z[bldg_price_mask]
+    bldg_series_full = df_pred[bldg_class_col].astype(str)
+    
+    # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
+    bldg_series_raw = bldg_series_full[bldg_price_mask]
+    codes_raw, uniques_raw = pd.factorize(bldg_series_raw)
+    
+    fig, ax = plt.subplots(figsize=(7, 6))
+    for code, label in enumerate(uniques_raw):
+        mask = codes_raw == code
+        if not np.any(mask):
+            continue
+        ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=5, alpha=0.5, label=label)
+    ax.set_xlabel(label_x)
+    ax.set_ylabel(label_y)
+    ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by building class\n(Original Simple Version)",
+                    fontsize=12, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    n_classes = len(uniques_raw)
+    if n_classes <= 10:
+        ax.legend(title="Building class", fontsize=8)
+    else:
+        ax.legend(title="Building class (truncated)", fontsize=6, ncol=2)
     plt.tight_layout()
-    save_figure("latent_marginals.png")
+    save_figure("latent_space_bldg_orig.png")
     plt.show()
+    
+    # --- Enhanced version: Aggregate to first letter (major category) ---
+    # Use the filtered data from above (same properties as price plots)
+    bldg_series = bldg_series_full[bldg_price_mask].str[0].str.upper()
+    
+    # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
+    # Order: Condos/Co-ops -> Multi-family Rental -> Houses -> Commercial -> Industrial -> Other
+    # This matches how typical NYC real estate listings organize property types
+    class_labels_ordered = [
+        # Most common residential (what buyers/renters search for)
+        ('R', 'Condominiums'),
+        ('D', 'Elevator Apartments'),
+        ('C', 'Walk-up Apartments'),
+        ('S', 'Mixed Residential'),
+        # Houses
+        ('A', '1-2 Family Houses'),
+        ('B', '2 Family Houses'),
+        # Commercial/Mixed-use
+        ('K', 'Retail/Stores'),
+        ('O', 'Office Buildings'),
+        ('H', 'Hotels'),
+        ('L', 'Lofts'),
+        # Industrial
+        ('E', 'Warehouses'),
+        ('F', 'Factories'),
+        ('G', 'Garages'),
+        # Special Purpose
+        ('I', 'Healthcare'),
+        ('J', 'Entertainment'),
+        ('M', 'Religious'),
+        ('N', 'Nursing/Asylums'),
+        ('P', 'Recreation (Indoor)'),
+        ('Q', 'Recreation (Outdoor)'),
+        ('T', 'Transportation'),
+        ('W', 'Educational'),
+        # Other
+        ('U', 'Utility'),
+        ('V', 'Vacant Land'),
+        ('Y', 'Government'),
+        ('Z', 'Miscellaneous'),
+    ]
+    class_labels = {k: v for k, v in class_labels_ordered}
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    # Use colormap with colors assigned in the PREDEFINED ORDER
+    # This ensures legend order matches color order
+    # Apply same count threshold as Performance by Building Class for consistency
+    MIN_CLASS_COUNT = 20
+    class_counts = bldg_series.value_counts()
+    present_classes = [letter for letter, _ in class_labels_ordered 
+                        if letter in bldg_series.values and class_counts.get(letter, 0) > MIN_CLASS_COUNT]
+    n_present = len(present_classes)
+    cmap = plt.cm.get_cmap('tab20', max(n_present, 1))
+    
+    # Plot in predefined order for color consistency, legend outside
+    for color_idx, letter in enumerate(present_classes):
+        mask = (bldg_series == letter).values
+        if not np.any(mask): 
+            continue
+        
+        lbl_full = class_labels.get(letter, letter)
+        ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=8, alpha=0.5, 
+                    color=cmap(color_idx), label=lbl_full, edgecolors='none')
+    
+    # Add Graded Density Contours Overlay
+    add_graded_density_contours(ax, bldg_z[:, plot_dim1], bldg_z[:, plot_dim2], x_lim_fixed, y_lim_fixed)
+    
+    ax.set_xlabel(label_x, fontsize=11)
+    ax.set_ylabel(label_y, fontsize=11)
+    
+    # Apply fixed axis limits
+    ax.set_xlim(x_lim_fixed)
+    ax.set_ylim(y_lim_fixed)
+    
+    ax.set_title("Latent Space by Building Class", fontsize=12, fontweight='bold', pad=8)
+    
+    ax.grid(False) # Strict removal
+    
+    # Legend outside
+    ax.legend(fontsize=8, loc='center left', bbox_to_anchor=(1.02, 0.5), 
+                framealpha=0.9, title="Building Class")
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    plt.tight_layout(rect=[0, 0, 0.85, 0.95]) # Make room for legend
+    save_figure("latent_space_bldg.png")
+    plt.show()
+
+plt.show()
+
+# --- 7d-NEW. Latent Marginal Distributions (Uniform Scale) ---
+# Plot top dimensions used in scatter plots
+dims_to_plot = [plot_dim1, plot_dim2]
+n_dims = len(dims_to_plot)
+
+fig, axes = plt.subplots(1, n_dims, figsize=(4*n_dims, 3.5), sharey=True, sharex=True)
+if n_dims == 1:
+    axes = [axes]
+
+# Compute global limit for x-axis
+z_global_min = np.percentile(mu_z[:, dims_to_plot], 0.5)
+z_global_max = np.percentile(mu_z[:, dims_to_plot], 99.5)
+pad = (z_global_max - z_global_min) * 0.1
+xlim_global = (z_global_min - pad, z_global_max + pad)
+
+for i, d in enumerate(dims_to_plot):
+    ax = axes[i]
+    ax.hist(mu_z[:, d], bins=40, alpha=0.8, color='#3498db', 
+            edgecolor='white', linewidth=0.3, density=True)
+    
+    # Use the same labels as the scatter plots (SHAP-based)
+    # Split into 2 lines for readability
+    if i == 0:
+        ax.set_xlabel(label_x.replace(' (', '\n('), fontsize=9)
+    else:
+        ax.set_xlabel(label_y.replace(' (', '\n('), fontsize=9)
+    
+    if i == 0:
+        ax.set_ylabel("Density", fontsize=11)
+    
+    ax.set_xlim(xlim_global)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+# Title
+fig.suptitle("Latent Marginal Distributions", fontsize=14, fontweight='bold', y=1.02)
+plt.tight_layout()
+save_figure("latent_marginals.png")
+plt.show()
 
 print("[Eval] All visualizations completed.")
