@@ -1147,7 +1147,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         
         ax.set_xlabel("Predicted Price")
         ax.set_ylabel("|Residual|")
-        ax.set_title("Absolute Residuals vs Prediction", fontweight='bold')
+        ax.set_title("Absolute Residuals vs Prediction", fontweight='bold', pad=8)
         
         # Enforce X-limit cutoff
         ax.set_xlim(left=np.log(100_000))
@@ -1165,7 +1165,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.spines['right'].set_visible(False)
         
         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
-        plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Larger bottom margin for vertical ticks + footnote
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95]) # Matched to Latent Plots
         save_figure("residuals_absolute_vs_pred.png")
         plt.show()
         
@@ -1250,7 +1250,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     
     ax.set_xlabel("Predicted Price", fontsize=11)
     ax.set_ylabel("Residual", fontsize=11)
-    ax.set_title("Conditional Bias", fontweight='bold', fontsize=14)
+    ax.set_title("Conditional Bias", fontweight='bold', fontsize=14, pad=8)
     
     # Enforce X-limit cutoff
     ax.set_xlim(left=np.log(100_000))
@@ -1269,7 +1269,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.grid(False) # Strict Grid Removal
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Margin for vertical ticks + footnote
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95]) # Matched to Latent Plots
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
 
@@ -1344,7 +1344,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         ax.set_xlabel("Building Class", fontsize=11)
                         ax.set_ylabel("Mean Residual", fontsize=11)
-                        ax.set_title("Performance by Building Class", fontweight='bold', fontsize=14)
+                        ax.set_title("Performance by Building Class", fontweight='bold', fontsize=14, pad=8)
                         
                         # "vertical axis tick labels" -> yes, rotated ticks.
                         ax.set_xticks(range(len(bldg_stats)))
@@ -1355,8 +1355,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         plt.figtext(0.5, 0.01, f"Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure plot area is at least 50% of figure height
-                        # With height=8, bottom=0.15 matches Residuals plot
-                        plt.tight_layout(rect=[0, 0.15, 1, 0.95])
+                        # Standardized layout (tight_layout handles rotated labels if rect is ample)
+                        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
@@ -1522,17 +1522,19 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                                 unc_list.append(np.nan)
                         
                         # Plot
+                        # Plot (Single Axis for Calibration/Scaling Comparison)
+                        # User requested "why are axes... on difference scaled". We fix this by sharing Y-axis.
                         fig, ax1 = plt.subplots(figsize=(8, 5))
                         ax1.plot(fracs_to_test, rmse_list, '-o', color='#21918c', label='Root Mean Square Error')
+                        ax1.plot(fracs_to_test, unc_list, '--s', color='#440154', label='Mean Predicted Sigma') # Same axis
+                        
                         ax1.set_xlabel("Synthetic Missing Fraction", fontsize=11)
-                        ax1.set_ylabel("Root Mean Square Error", color='#21918c', fontsize=11)
+                        ax1.set_ylabel("Log-Price Error / Uncertainty", fontsize=11) # Shared Label
                         ax1.set_ylim(bottom=0)  # Y-axis starts at 0
                         
-                        ax2 = ax1.twinx()
-                        ax2.plot(fracs_to_test, unc_list, '--s', color='#440154', label='Mean Predicted Standard Deviation')
-                        ax2.set_ylabel("Predicted Standard Deviation", color='#440154', fontsize=11)
+                        ax1.legend(loc='upper left', framealpha=0.9)
                         
-                        ax1.set_title("Synthetic Missingness Stress Test", fontweight='bold', fontsize=14)
+                        ax1.set_title("Missingness Test", fontweight='bold', fontsize=14, pad=8)
                         
                         # Footnote with sample size
                         plt.figtext(0.5, 0.01, f"n = {n_syn} samples. Values in Log Price Space.", 
@@ -1619,7 +1621,22 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                            # Data is Projected (likely local or 3857)
                            # If it's NYC data (EPSG:2263), we should tell contextily
                            cx.add_basemap(ax, crs='EPSG:2263', source=cx.providers.CartoDB.Positron)
-                  except (ImportError, Exception) as e_map:
+                  except ImportError:
+                      # Attempt Auto-Install as requested "if needed"
+                      print("[Eval] Contextily not found. Installing...")
+                      try:
+                          import subprocess
+                          import sys
+                          subprocess.check_call([sys.executable, "-m", "pip", "install", "contextily"])
+                          import contextily as cx
+                          if is_geo:
+                               cx.add_basemap(ax, crs='EPSG:4326', source=cx.providers.CartoDB.Positron)
+                          else:
+                               cx.add_basemap(ax, crs='EPSG:2263', source=cx.providers.CartoDB.Positron)
+                          print("[Eval] Contextily installed and applied.")
+                      except Exception as e_install:
+                           print(f"[Eval] Contextily install failed: {e_install}. Plotting minimal map.")
+                  except Exception as e_map:
                       # Suggest installation
                       print(f"[Eval] Could not add basemap (contextily): {e_map}.")
                       print("[Eval] To enable basemap: pip install contextily")
