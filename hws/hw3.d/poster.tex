@@ -171,7 +171,10 @@
 
       \begin{block}{Discussion \& Future Work}
         \begin{itemize}
-          \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails with $R^2 \approx 0.27$ on residuals.
+          \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails ($R^2 \approx 0.27$ on residuals).
+            \begin{center}
+              \includegraphics[width=0.6\textwidth]{images/residuals_qq_simple.png}
+            \end{center}
           \item \textbf{Future Work}:
             \begin{itemize}
               \item \textbf{Heavier Tails}: Replace Gaussian likelihood with Student-t.
