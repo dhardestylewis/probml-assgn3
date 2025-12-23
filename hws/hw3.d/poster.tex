@@ -12,13 +12,13 @@
 }
 
 % Define colors
-\definecolor{ColumbiaBlue}{RGB}{29, 79, 145}
+\definecolor{ColumbiaBlue}{RGB}{0, 43, 127}
 \setbeamercolor{structure}{fg=ColumbiaBlue}
 \setbeamercolor{headline}{bg=ColumbiaBlue,fg=white}
 \setbeamercolor{block title}{bg=ColumbiaBlue,fg=white}
 \setbeamercolor{block body}{bg=white,fg=black}
 
-\graphicspath{{images/}}
+% \graphicspath{{images/}}
 
 % --- HEADER ---
 \setbeamertemplate{headline}{
@@ -29,7 +29,7 @@
       \begin{column}{.15\paperwidth}
         \centering
         \vspace{1cm}
-        \includegraphics[height=4cm]{columbia_logo.png} 
+        \includegraphics[height=4cm]{images/columbia_logo.png} 
         \vspace{1cm}
       \end{column}
       \begin{column}{.66\paperwidth}
@@ -55,7 +55,7 @@
       \begin{column}{.15\paperwidth}
         \centering
         \vspace{1.5cm}
-        \includegraphics[height=3cm]{columbia_engineering_logo.png}
+        \includegraphics[height=3cm]{images/columbia_engineering_logo.png}
         \vspace{1.5cm}
       \end{column}
       \begin{column}{.02\paperwidth}\end{column}
@@ -102,7 +102,7 @@
       \begin{block}{Graphical Model}
         \begin{figure}
           \centering
-          \includegraphics[width=0.95\textwidth]{miwae_graphical_model.png}
+          \includegraphics[width=0.95\textwidth]{images/miwae_graphical_model.png}
           \caption{SemiSupMIWAE Structure where $y$ is semi-observed.}
         \end{figure}
       \end{block}
@@ -113,12 +113,12 @@
 
     % --- COLUMN 2 ---
     \begin{column}{0.31\paperwidth}
-      \begin{block}{Convergence \& Training}
-        Trained on approximately 122,000 NYC parcels. Loss stabilizes around 50 epochs.
+      \begin{block}{Spatial Residual Analysis}
+        Spatial plotting reveals geographic bias.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{convergence_loss.png}
-          \caption{Training and Validation Loss on a Representative Fold.}
+          \includegraphics[width=0.95\textwidth]{images/residuals_spatial_map.png}
+          \caption{Spatial Residuals. Color indicates mean residual per hexbin.}
         \end{figure}
       \end{block}
 
@@ -145,9 +145,9 @@
         Residuals show significant heavy tails with Kurtosis approximately 9.27.
         \begin{figure}
           \centering
-          \includegraphics[width=0.48\textwidth]{residuals_hist_references.png}
-          \hfill
-          \includegraphics[width=0.48\textwidth]{residuals_qq.png}
+          \includegraphics[width=0.8\textwidth]{images/residuals_hist_references.png}
+          % QQ plot removed to simplify visual narrative and fix build stability.
+          % \includegraphics[width=0.48\textwidth]{images/residuals_qq_simple.png}
           \caption{Log-price residuals vs Normal. Visual comparison highlights extreme kurtosis.}
         \end{figure}
       \end{block}
@@ -165,7 +165,7 @@
         Gradient $z_0/z_1$ suggests a "Value/Size" factor.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{latent_space_price.png}
+          \includegraphics[width=0.9\textwidth]{images/latent_space_price.png}
           \caption{Latents colored by Price Decile.}
         \end{figure}
 
@@ -173,7 +173,7 @@
         Clusters separate building classes such as Small vs Mixed-Use.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{latent_space_bldg.png}
+          \includegraphics[width=0.9\textwidth]{images/latent_space_bldg.png}
           \caption{Latents colored by Building Class.}
         \end{figure}
       \end{block}
