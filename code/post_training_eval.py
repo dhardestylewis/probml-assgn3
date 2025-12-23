@@ -1145,8 +1145,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         except Exception as e_loess:
             print(f"[Eval] LOESS failed: {e_loess}")
         
-        ax.set_xlabel("Predicted Price")
-        ax.set_ylabel("|Residual|")
+        ax.set_xlabel("Predicted Price\n" + r"$\it{(Values\ in\ Log\ Space)}$", fontsize=11)
+        ax.set_ylabel("|Residual|", fontsize=11)
         ax.set_title("Absolute Residuals vs Prediction", fontweight='bold', pad=8)
         
         # Enforce X-limit cutoff
@@ -1164,7 +1164,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+        # Note moved to xlabel to maintain consistent spacing with axis despite rotated ticks
         plt.tight_layout(rect=[0, 0.05, 1, 0.95]) # Matched to Latent Plots
         save_figure("residuals_absolute_vs_pred.png")
         plt.show()
@@ -1248,7 +1248,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     for t in curr_ticks:
         ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
     
-    ax.set_xlabel("Predicted Price", fontsize=11)
+    ax.set_xlabel("Predicted Price\n" + r"$\it{(Values\ in\ Log\ Space)}$", fontsize=11)
     ax.set_ylabel("Residual", fontsize=11)
     ax.set_title("Conditional Bias", fontweight='bold', fontsize=14, pad=8)
     
@@ -1258,7 +1258,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     # Range limits [-1, 1] for Conditional Bias
     ax.set_ylim(-1, 1)
     
-    plt.figtext(0.5, 0.01, r"Conditional Bias: $\mathbb{E}[r \mid \hat{y}]$ where $r = \log(y) - \log(\hat{y})$", ha="center", fontsize=9, fontstyle='italic')
+    # Note moved to xlabel
+    # plt.figtext(0.5, 0.01, r"Conditional Bias: $\mathbb{E}[r \mid \hat{y}]$ where $r = \log(y) - \log(\hat{y})$", ha="center", fontsize=9, fontstyle='italic')
 
     # Apply Ticks and Labels to match 'Residuals vs Pred'
     ax.set_xticks(curr_ticks)
@@ -1342,7 +1343,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                                fmt='o', color='teal', capsize=4, label='Mean Residual')
                         ax.axhline(0, color='black', linestyle='--', label='Zero Reference')
                         
-                        ax.set_xlabel("Building Class", fontsize=11)
+                        ax.set_xlabel("Building Class\n" + r"$\it{(Values\ in\ Log\ Space.\ Price\ \geq\ \$100k)}$", fontsize=11)
                         ax.set_ylabel("Mean Residual", fontsize=11)
                         ax.set_title("Performance by Building Class", fontweight='bold', fontsize=14, pad=8)
                         
@@ -1352,7 +1353,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         ax.legend(loc='upper right', framealpha=0.9)
                         
-                        plt.figtext(0.5, 0.01, f"Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
+                        # Note moved to xlabel
+                        # plt.figtext(0.5, 0.01, f"Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure plot area is at least 50% of figure height
                         # Standardized layout (tight_layout handles rotated labels if rect is ample)
@@ -1528,7 +1530,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax1.plot(fracs_to_test, rmse_list, '-o', color='#21918c', label='Root Mean Square Error')
                         ax1.plot(fracs_to_test, unc_list, '--s', color='#440154', label='Mean Predicted Sigma') # Same axis
                         
-                        ax1.set_xlabel("Fraction Masked", fontsize=11)
+                        ax1.set_xlabel("Fraction Masked\n" + r"$\it{(n=" + str(n_syn) + r"\ samples.\ Values\ in\ Log\ Price\ Space.)}$", fontsize=11)
                         # ax1.set_ylabel("", fontsize=11) # User requested no y-axis label
                         ax1.set_ylabel("")
                         ax1.set_ylim(bottom=0)  # Y-axis starts at 0
@@ -1537,9 +1539,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         ax1.set_title("Missingness Test", fontweight='bold', fontsize=14, pad=8)
                         
-                        # Footnote with sample size
-                        plt.figtext(0.5, 0.01, f"n = {n_syn} samples. Values in Log Price Space.", 
-                                   ha='center', fontsize=9, fontstyle='italic')
+                        # Note moved to xlabel
+                        # plt.figtext(0.5, 0.01, f"n = {n_syn} samples. Values in Log Price Space.", 
+                        #            ha='center', fontsize=9, fontstyle='italic')
                         
                         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
                         save_figure("synthetic_missingness_stress.png")
