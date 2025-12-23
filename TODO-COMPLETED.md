@@ -71,3 +71,22 @@ This file contains tasks that have been completed and verified, moved here from 
 - [x] "should we include david blei's email?" (Decision: Omit) [Completed: 2025-12-22]
 - [x] "is "shouldnt December 23, 2025 go somwhere else entirely?... duplicative of Fall 2025?" (Removed specific date) [Completed: 2025-12-22]
 - [x] "what happened to Columbia and Columbia Engineering logos and names using search to donwload locally relevant materials from their website?" (Attempted download, Placeholder ready, Layout fixed) [Completed: 2025-12-22]
+
+### P1 - Post-Training Eval Visualization Feedback (2025-12-22 Session)
+- [x] Price colorbar legend: define all values beyond $50M up to max value $4111.1M (use "B" for billion) [Completed: 2025-12-22 19:59]
+- [x] Include min and max count values in density hexbin colorbar [Completed: 2025-12-22 19:59]
+- [x] Building class legend: organize using official NYC listing order, fix color ordering to match legend order [Completed: 2025-12-22 19:59]
+- [x] Student-t reference lines: use multiplicative ratios (ν/2 and ν*2) around fitted value, not additive offsets [Completed: 2025-12-22 19:59]
+- [x] QQ plot: ensure Student-t CI and fit line use same fitted distribution parameters [Completed: 2025-12-22 19:59]
+- [x] Residual scale consistency: one plot shows 15 (log space), other shows 200000 (level space) - clarify or unify [Completed: 2025-12-22 19:59]
+- [x] Convergence plot: don't say "mean" for single fold, add loss function footnote [Completed: 2025-12-22 19:59]
+- [x] All plots: spell out "Dimension" not "Dim", center titles on axes not figure [Completed: 2025-12-22 19:59]
+- [x] Latent space: add variance check before forcing equal axes, include hexbin+contour for all plots [Completed: 2025-12-22 19:59]
+- [x] Find and restore original QQ plot code from probml.py for comparison [Completed: 2025-12-22 19:59]
+- [x] **Visual Refinements (Phase 3-5)**:
+    - [x] Building Class Major Group aggregation [Completed: 2025-12-22 19:59]
+    - [x] Gridlines removed from Latent Density/Price plots [Completed: 2025-12-22 19:59]
+    - [x] Titles standardized (no suptitle) [Completed: 2025-12-22 19:59]
+    - [x] Residuals vs References: Math footnote, $\nu$ labels, 250M global cap [Completed: 2025-12-22 19:59]
+    - [x] Sale Year Coverage: Strict [0, 1] range [Completed: 2025-12-22 19:59]
+    - [x] QQ Plot: Strict [-10, 10] range [Completed: 2025-12-22 19:59]

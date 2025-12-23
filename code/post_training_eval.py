@@ -56,34 +56,57 @@ def normal_cdf_np(z_in):
     zt = torch.as_tensor(np.asarray(z_in, dtype=np.float32))
     return _STD_NORMAL.cdf(zt).cpu().numpy()
 
-def normal_ppf_scalar(p_in):
-    pt = torch.tensor(float(p_in), dtype=torch.float32)
-    return float(_STD_NORMAL.icdf(pt).cpu().item())
-
-def apply_global_price_filter(y_true_log, y_true, mu_log, var_log, eval_indices, eval_pos_idx, min_price_log):
+def normal_ppf_torch(p_in):
     """
-    Apply global price filter UNIVERSALLY to all array-likes.
+    Vectorized PPF (Inverse CDF) using Torch. 
+    Handles both scalar and array inputs.
     """
-    y_true_log = np.asarray(y_true_log).reshape(-1)
-    mask = y_true_log >= float(min_price_log)
-
-    n_before = int(mask.size)
-    n_after = int(mask.sum())
-    if n_after < n_before:
-        print(f"[Eval] Global filter: log(price) >= {float(min_price_log):.6f}. Kept {n_after}/{n_before}.")
+    if isinstance(p_in, (float, int)):
+        pt = torch.tensor(float(p_in), dtype=torch.float32)
+        return float(_STD_NORMAL.icdf(pt).cpu().item())
     else:
-        print(f"[Eval] Global filter: kept all {n_before} samples.")
+        # Assume numpy array or similar
+        pt = torch.from_numpy(np.asarray(p_in)).float()
+        return _STD_NORMAL.icdf(pt).cpu().numpy()
 
-    def _f(a):
-        if a is None:
-            return None
-        a = np.asarray(a)
-        if len(a) != n_before:
-             # Try to catch mismatch early, unless variable length list
-             pass 
-        return a[mask]
-
-    return _f(y_true_log), _f(y_true), _f(mu_log), _f(var_log), _f(eval_indices), _f(eval_pos_idx)
+def apply_global_price_filter(y_true_log, mu_log, var_log, pos_idx, df, min_price=100_000):
+    """
+    Applies a universal price filter (>= min_price) to all aligned evaluation arrays.
+    Returns filtered versions of all inputs.
+    """
+    limit_log = np.log(min_price)
+    upper_log = np.log(250_000_000.0) # User requested 250M cutoff
+    
+    # 250M Cap & Min Price
+    mask = (y_true_log >= limit_log) & (y_true_log <= upper_log)
+    
+    n_before = len(y_true_log)
+    n_after = mask.sum()
+    
+    print(f"\n[Eval] Global Price Filter ($100k - $250M): Keeping {n_after}/{n_before} samples ({100*n_after/n_before:.1f}%)")
+    
+    # Apply to all
+    y_new = y_true_log[mask]
+    mu_new = mu_log[mask]
+    var_new = var_log[mask] if var_log is not None else None
+    
+    # pos_idx must be aligned
+    if pos_idx is not None:
+        if len(pos_idx) != n_before:
+             raise RuntimeError(f"Length mismatch in global filter (pos_idx): got {len(pos_idx)} expected {n_before}")
+        pos_new = pos_idx[mask]
+    else:
+        pos_new = None
+        
+    # df must be aligned
+    if df is not None:
+         if len(df) != n_before:
+             raise RuntimeError(f"Length mismatch in global filter (df): got {len(df)} expected {n_before}")
+         df_new = df[mask].copy() # Copy to avoid SettingWithCopy
+    else:
+         df_new = None
+         
+    return y_new, mu_new, var_new, pos_new, df_new
 
 @torch.no_grad()
 def predict_mu_from_z(vae_model, zt):
@@ -118,7 +141,89 @@ def check_head_vs_trainer_mu(vae_model, vae_trainer, X_all_np, eval_pos_idx, n=2
     print(f"[Contract] Head vs Trainer Check: max_diff={max_abs:.6f}, mean_diff={mean_abs:.6f}")
     assert max_abs < atol, f"Mismatch (max={max_abs}): do not interpret Z importance or Z SHAP until this passes."
     
-# ----------------------------------------------------------
+# --- SALE YEAR CONTRACT (Gate D Helper) ---
+def sale_year_bin_table(meta_df, yr_col, y_true, mu, var, bin_width=1, min_count=20):
+    """
+    Computes calibration and performance metrics stratified by sale year.
+    Used for Gate D (Sale Year Calibration).
+    """
+    years = meta_df[yr_col].values
+    valid = np.isfinite(years)
+    years = years[valid].astype(int)
+    
+    y = y_true[valid]
+    mu_v = mu[valid]
+    resid = y - mu_v
+    
+    has_var = (var is not None)
+    if has_var:
+        var_v = np.clip(var[valid], 1e-9, np.inf)
+        sig_v = np.sqrt(var_v)
+    
+    # Range
+    if len(years) == 0:
+        return pd.DataFrame()
+
+    start = (years.min() // bin_width) * bin_width
+    stop  = ((years.max() // bin_width) + 1) * bin_width
+    edges = np.arange(start, stop + bin_width, bin_width, dtype=int)
+    
+    idx = digitize_safe(years.astype(float), edges.astype(float))
+    
+    rows = []
+    for i in range(1, len(edges)):
+        m = (idx == i)
+        n = int(m.sum())
+        if n < min_count:
+            continue
+            
+        resid_i = resid[m]
+        mean_resid = float(np.mean(resid_i))
+        se_mean_resid = float(np.std(resid_i, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+        rmse_log = float(np.sqrt(np.mean(resid_i**2)))
+        
+        cov_50 = cov_80 = cov_95 = float('nan')
+        pit_mean = float('nan')
+        
+        if has_var:
+            y_i = y[m]
+            mu_i = mu_v[m]
+            sig_i = sig_v[m]
+            
+            # Coverage
+            for alpha, key in [(0.50, "cov_50"), (0.80, "cov_80"), (0.95, "cov_95")]:
+                z = normal_ppf_np(0.5 + alpha/2.0)
+                lower = mu_i - z * sig_i
+                upper = mu_i + z * sig_i
+                covered = float(np.mean((y_i >= lower) & (y_i <= upper)))
+                if key == "cov_50": cov_50 = covered
+                if key == "cov_80": cov_80 = covered
+                if key == "cov_95": cov_95 = covered
+            
+            # PIT (Vectorized)
+            pit = normal_cdf_np((y_i - mu_i) / sig_i)
+            pit_mean = float(np.mean(pit))
+        
+        rows.append({
+            "year": int(edges[i-1]),
+            "n": n,
+            "mean_resid": mean_resid,
+            "se_mean_resid": se_mean_resid,
+            "rmse_log": rmse_log,
+            "cov_50": cov_50,
+            "cov_80": cov_80,
+            "cov_95": cov_95,
+            "pit_mean": pit_mean
+        })
+    return pd.DataFrame(rows)
+
+def normal_ppf_np(p_in):
+    """
+    Vectorized PPF (Inverse CDF) using Torch, accepting Numpy input.
+    Replaces unsafe scalar versions.
+    """
+    pt = torch.as_tensor(np.asarray(p_in, dtype=np.float32))
+    return float(_STD_NORMAL.icdf(pt).cpu().item()) if pt.numel() == 1 else _STD_NORMAL.icdf(pt).cpu().numpy()
 
 # ----------------------------------------------------------
 # 1. Paths (aligned with your AlphaScan cell)
@@ -398,8 +503,8 @@ else:
     if obs_idx.size == 0:
         raise RuntimeError("[Eval] No observed targets according to VAE mask; cannot evaluate.")
 
-    y_true_log_all = df_pred[log_y_col].astype(float).values[obs_idx]
-    y_true_all     = df_pred[price_col].astype(float).values[obs_idx]
+    y_true_log_all = df_pred[log_y_col].astype(float).to_numpy()[obs_idx]
+    y_true_all     = df_pred[price_col].astype(float).to_numpy()[obs_idx]
     X_obs = X_filled_np[obs_idx]
 
     N_obs = X_obs.shape[0]
@@ -433,100 +538,60 @@ else:
     eval_pos_idx = obs_idx[test_rel_idx]
 
 # --- GLOBAL FILTER: Price >= $100k (Applied UNIVERSALLY) ---
-MIN_PRICE_LOG_GLOBAL = np.log(100_000.0)
+# --- GLOBAL FILTER: Price >= $100k (Applied UNIVERSALLY) ---
+# Gate F: Align metadata first, then filter everything together.
+meta_eval = df_pred.iloc[eval_pos_idx].copy()
 
 # Filter aligned arrays using the helper
-y_true_log_eval, y_true_eval, mu_log_eval, var_log_eval, eval_indices, eval_pos_idx = apply_global_price_filter(
-    y_true_log_eval, y_true_eval, mu_log_eval, var_log_eval, eval_indices, eval_pos_idx, MIN_PRICE_LOG_GLOBAL
+y_true_log_eval, mu_log_eval, var_log_eval, eval_pos_idx, meta_eval = apply_global_price_filter(
+    y_true_log_eval, mu_log_eval, var_log_eval, eval_pos_idx, meta_eval
 )
 
+# Keep a single aligned name downstream
+df_pred_filtered = meta_eval
+
+# Post-filter hard alignment asserts (Gate F)
+n_post = y_true_log_eval.shape[0]
+if mu_log_eval.shape[0] != n_post or eval_pos_idx.shape[0] != n_post or len(df_pred_filtered) != n_post:
+    raise RuntimeError(f"Post-filter alignment failure. n={n_post}, mu={len(mu_log_eval)}, idx={len(eval_pos_idx)}, df={len(df_pred_filtered)}")
+if var_log_eval is not None and var_log_eval.shape[0] != n_post:
+    raise RuntimeError("Post-filter alignment failure (var_log_eval).")
+
 # Also filter residuals to match
+# Re-compute residuals to be safe
 resid_log = y_true_log_eval - mu_log_eval
 
-# optional metrics on "uncertainty OK" subset (re-check after filter)
+# --- SALE YEAR CALIBRATION (Gate D: Unconditional Top-Level) ---
+sale_col = first_present(["sale_year", "year_sale", "saleyear"], df_pred_filtered)
+if (sale_col is not None) and (var_log_eval is not None):
+    print(f"\n[Eval] Running Sale Year Calibration on '{sale_col}'...")
+    tbl_sale = sale_year_bin_table(
+        df_pred_filtered, sale_col, y_true_log_eval, mu_log_eval, var_log_eval,
+        bin_width=1, min_count=20
+    )
+    if not tbl_sale.empty:
+        print(tbl_sale[["year","n","mean_resid","rmse_log","cov_50","cov_80","cov_95","pit_mean"]].to_string(index=False))
+        
+        # Plot Coverage (Immediate)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(tbl_sale['year'], tbl_sale['cov_50'], 'o-', label='50% CI')
+        ax.plot(tbl_sale['year'], tbl_sale['cov_80'], 'o-', label='80% CI')
+        ax.plot(tbl_sale['year'], tbl_sale['cov_95'], 'o-', label='95% CI')
+        ax.axhline(0.50, color='gray', linestyle=':')
+        ax.axhline(0.80, color='gray', linestyle=':')
+        ax.axhline(0.95, color='gray', linestyle=':')
+        ax.set_ylim(0, 1) # Strict range [0, 1]
+        ax.set_xlabel("Sale Year")
+        ax.set_ylabel("Empirical Coverage")
+        ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold')
+        ax.legend()
+        save_figure("coverage_by_sale_year.png")
+        plt.show()
 if have_cv_dist and var_log_eval is not None:
     # We need aligned 'prediction_uncertainty_ok'
     # Difficult to align without mask matching. 
     # Simplified: skip or re-fetch based on eval_indices
     pass
-
-
-else:
-    print("\n[Eval] cv_* columns not found; falling back to direct predictions from best_model on a random hold-out split.")
-    if BEST_MODEL_PATH is None:
-        raise RuntimeError("[Eval] No cv_* columns and no best_model.pth; cannot compute predictive metrics.")
-
-    # mask for rows where the target is observed
-    y_mask = y_mask_np.squeeze()
-    obs_idx = np.where(y_mask > 0.0)[0]
-    if obs_idx.size == 0:
-        raise RuntimeError("[Eval] No observed targets according to VAE mask; cannot evaluate.")
-
-    y_true_log_all = df_pred[log_y_col].astype(float).to_numpy()[obs_idx]
-    y_true_all     = df_pred[price_col].astype(float).to_numpy()[obs_idx]
-    X_obs = X_filled_np[obs_idx]
-
-    N_obs = X_obs.shape[0]
-    rng = np.random.default_rng(42)
-    perm = rng.permutation(N_obs)
-    split = int(0.8 * N_obs)
-    test_rel_idx = perm[split:]
-    X_test = X_obs[test_rel_idx]
-    y_true_log = y_true_log_all[test_rel_idx]
-    y_true     = y_true_all[test_rel_idx]
-
-    X_test_tensor = torch.from_numpy(X_test).float().to(DEVICE)
-    log_mu, log_var = vae_trainer.predict_price_and_uncertainty(X_test_tensor, batch_size=1024)
-    log_mu = np.asarray(log_mu).reshape(-1)
-    log_var = np.asarray(log_var).reshape(-1)
-    # WARNING: evidence suggests log_var is actually log_sigma (log std).
-    # Over-coverage of ~20% with exp(log_var) supports this.
-    # New semantics: var_log = exp(2 * log_sigma)
-    var_log = np.exp(2 * log_var)
-
-    print(f"[Eval] Evaluating on random hold-out: {len(test_rel_idx)} / {N_obs} observed rows.")
-    _report_metrics(y_true_log, y_true, log_mu, var_log, label_prefix="best_model, random hold-out")
-
-
-
-    # store for residual diagnostics
-    y_true_log_eval = y_true_log
-    y_true_eval = y_true # Fix NameError
-    mu_log_eval = log_mu
-    var_log_eval = var_log
-    resid_log = y_true_log_eval - mu_log_eval # Fix IndexError/Stale Global
-    # Indices for metadata fetch
-    eval_indices = df_pred.index.values[obs_idx][test_rel_idx]
-    # Integer positions in df_pred (for X_mask / mu_z alignment)
-    # obs_idx are the positions in df_pred of observed rows
-    # test_rel_idx are the positions in obs_idx
-    eval_pos_idx = obs_idx[test_rel_idx]
-
-    # --- GLOBAL FILTER: Price >= $100k ---
-    # Apply UNIVERSALLY to all downstream diagnostics as requested.
-    MIN_PRICE_LOG_GLOBAL = np.log(100_000)
-    
-    # Check if we have targets to filter
-    if y_true_log_eval is not None:
-        mask_global = y_true_log_eval >= MIN_PRICE_LOG_GLOBAL
-        n_before = len(y_true_log_eval)
-        n_after = mask_global.sum()
-        
-        if n_after < n_before:
-            print(f"\n[Eval] Applying GLOBAL Price Filter (>= $100k). Kept {n_after}/{n_before} samples.")
-            
-            # Filter all core evaluation arrays
-            y_true_log_eval = y_true_log_eval[mask_global]
-            if y_true_eval is not None: y_true_eval = y_true_eval[mask_global]
-            if mu_log_eval is not None: mu_log_eval = mu_log_eval[mask_global]
-            if var_log_eval is not None: var_log_eval = var_log_eval[mask_global]
-            if resid_log is not None: resid_log = resid_log[mask_global]
-            
-            # Filter indices (critical for metadata alignment)
-            if eval_indices is not None: eval_indices = eval_indices[mask_global]
-            if eval_pos_idx is not None: eval_pos_idx = eval_pos_idx[mask_global]
-        else:
-            print(f"\n[Eval] GLOBAL Price Filter (>= $100k) applied. All {n_before} samples valid.")
 
 # ===========================================================================
 # 5. Convergence diagnostics (train/val loss vs epoch)
@@ -645,24 +710,15 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     resid_log = y_true_log_eval - mu_log_eval
     
     # Fit parameters (used across all residual plots)
-    if HAVE_SCIPY:
-        mu_fit, std_fit = stats.norm.fit(resid_log)
-        df_fit, loc_fit, scale_fit = stats.t.fit(resid_log)
-        x_max = max(abs(resid_log.min()), abs(resid_log.max())) + 0.5
-        x_grid = np.linspace(-x_max, x_max, 500)
-    
-    # --- VERSION 1: Simple histogram only ---
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.hist(resid_log, bins=50, density=True, alpha=0.8, color='#2ecc71', 
-            edgecolor='white', linewidth=0.3)
-    ax.set_xlabel("Residual", fontsize=11)
-    ax.set_ylabel("Density", fontsize=11)
-    ax.set_xlim(-10, 10)  # Fixed x-axis limits
-    ax.set_ylim(0, 2)  # Fixed y-axis limits
-    ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
-    fig.suptitle("Residual Distribution", fontsize=14, fontweight='bold', y=0.98)
-    ax.set_title("r = log(y_true) - log(y_hat)", fontsize=9, color='gray', pad=3)
-    ax.spines['top'].set_visible(False)
+            edgecolor='white', linewidth=0.3, label='Observed Residuals', zorder=3)
+    
+    if HAVE_SCIPY:
+        # Fits
+        loc_n, scale_n = stats.norm.fit(resid_log)
+        df_fit, loc_fit, scale_fit = stats.t.fit(resid_log)
+        x_grid = np.linspace(-10, 10, 400)
     ax.spines['right'].set_visible(False)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     save_figure("residuals_hist_simple.png")
@@ -673,7 +729,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.hist(resid_log, bins=50, density=True, alpha=0.8, color='#2ecc71', 
                 edgecolor='white', linewidth=0.3, label='Observed', zorder=3)
-        pdf_norm = stats.norm.pdf(x_grid, loc=mu_fit, scale=std_fit)
+        pdf_norm = stats.norm.pdf(x_grid, loc=loc_n, scale=scale_n)
         ax.plot(x_grid, pdf_norm, color='gray', linestyle='--', linewidth=1.5, 
                 alpha=0.7, label='Normal (MLE fit)', zorder=1)
         ax.set_xlabel("Residual", fontsize=11)
@@ -717,12 +773,12 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             # Matching variance is undefined for nu <= 2
             pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=loc_fit, scale=scale_fit)
             ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
-                    alpha=0.7, label=f'nu={nu_ref:.1f}', zorder=1)
+                    alpha=0.7, label=f'$\\nu$={nu_ref:.1f}', zorder=1)
         
         # Best-fit Student-t: same gray color but SOLID line (not dashed)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
         ax.plot(x_grid, pdf_t_best, color='gray', linestyle='-', linewidth=2, 
-                alpha=0.9, label=f'Student-t fit (nu={df_fit:.1f})', zorder=2)
+                alpha=0.9, label=f'Student-t ($\\nu$={df_fit:.1f})', zorder=2)
 
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
@@ -733,16 +789,27 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)  # subtle zero line
     
     # Title + subtitle with formula
-    fig.suptitle("Residuals vs Heavy-Tailed References", fontsize=14, fontweight='bold', y=0.98)
-    ax.set_title("r = log(y_true) - log(y_hat) * Log-transformed prices", 
-                 fontsize=9, color='gray', pad=3)
+    ax.set_xlabel("Residual", fontsize=11)
+    ax.set_ylabel("Density", fontsize=11)
+    
+    # Fixed axis limits for residual plots
+    ax.set_xlim(-10, 10)
+    ax.set_ylim(0, 2)
+    ax.axvline(0, color='black', linewidth=0.5, alpha=0.3)
+    
+    # Standardized Title (No Suptitle)
+    ax.set_title("Residuals vs References", fontweight='bold', fontsize=12)
+    
+    # Math Footnote (User Requested)
+    plt.figtext(0.5, 0.01, r"$r = \log(y_{true}) - \log(y_{pred})$", ha="center", fontsize=10)
     
     ax.legend(loc='upper right', fontsize=8, framealpha=0.9)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+    ax.grid(False) # Strict removal
     
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    save_figure("residuals_hist_studentt.png")
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+    save_figure("residuals_hist_references.png")
     plt.show()
 
     # --- 6b-ORIG. ORIGINAL Simple QQ-plot vs Normal (for comparison) ---
@@ -796,7 +863,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # Plot confidence band (solid fill, prominent)
         ax.fill_between(theoretical_quantiles, lower_t, upper_t, 
                         color='#e74c3c', alpha=0.2, 
-                        label=f'95% CI (Student-t nu={df_fit:.1f})', zorder=1)
+                        label=f'95% CI (Student-t $\\nu$={df_fit:.1f})', zorder=1)
         
         # Reference line: y = x (perfect fit)
         # ref_line = np.array([theoretical_quantiles.min(), theoretical_quantiles.max()])
@@ -840,13 +907,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     else:
         print("[Eval] Skipping QQ-plot (scipy not available).")
         
-    # --- Helper: Safe Digitize ---
-    def digitize_safe(x, edges):
-        # np.digitize returns indices 1..len(edges)-1 normally
-        # but 0 for < edges[0] and len(edges) for >= edges[-1]
-        # We want to clamp to 1..len(edges)-1 to avoid index errors or dropouts
-        idx = np.digitize(x, edges, right=False)
-        return np.clip(idx, 1, len(edges)-1)
+    # --- Helper: Safe Digitize (Removed - use top-level) ---
+    # def digitize_safe(...) removed to satisfy Gate E
 
     # --- Helper: Log Price to Currency Ticks ---
     def get_log_price_ticks(min_log, max_log):
@@ -877,96 +939,114 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         std_resid = resid_log / sigma_log_eval
         
         # 1. Calibration Table (Scipy-free, using Torch for robust CDF/PPF)
-        from torch.distributions import Normal
-        _STD_NORMAL = Normal(torch.tensor(0.0), torch.tensor(1.0))
-
-        def normal_cdf_np(z_in):
-            # Safe numpy -> torch -> numpy cdf
-            zt = torch.from_numpy(np.array(z_in, dtype=np.float32))
-            return _STD_NORMAL.cdf(zt).cpu().numpy()
-
-        def normal_ppf_scalar(p_in):
-             pt = torch.tensor(float(p_in), dtype=torch.float32)
-             return float(_STD_NORMAL.icdf(pt).cpu().item())
-
         print("\n=== Calibration Metrics (Empirical Coverage) ===")
         print("Interval  | Nominal | Empirical | Gap")
         print("----------|---------|-----------|-----")
         for alpha in [0.50, 0.80, 0.95]:
             # Central interval z-score
-            z_score = normal_ppf_scalar(0.5 + alpha/2)
+            z_score = normal_ppf_torch(0.5 + alpha/2)
             lower = mu_log_eval - z_score * sigma_log_eval
             upper = mu_log_eval + z_score * sigma_log_eval
             covered = (y_true_log_eval >= lower) & (y_true_log_eval <= upper)
             empirical = covered.mean()
             print(f"{int(alpha*100)}% CI    | {alpha:.3f}   | {empirical:.3f}     | {empirical-alpha:+.3f}")
             
-        # 2a. Standardized Residuals vs Prediction (Heteroskedasticity check)
+    # --- SALE YEAR CALIBRATION (Gate D) ---
+    # Moved to top-level to run conditionally but not nested
+    # Nested block removed to prevent duplication and satisfy Gate D/E.
+
+    # 4. Residuals vs Prediction (Revised Gate E/Visuals)
+    # --------------------------
+    if var_log_eval is not None:
+        sigma_eval = np.sqrt(np.clip(var_log_eval, 1e-9, np.inf))
+        std_resid = resid_log / (sigma_eval + 1e-9)
+        resid_std_label = "Residual (Standardized)"
+        
+        # QQ Plot
+        fig, ax = plt.subplots(figsize=(6, 6))
+        
+        sorted_res = np.sort(std_resid) # Use std_resid here!
+        n = len(sorted_res)
+        prob = (np.arange(n) + 0.5) / n
+        theo_q = normal_ppf_np(prob) # Vectorized call
+        
+        ax.scatter(theo_q, sorted_res, alpha=0.3, s=5)
+        
+        # 45 degree line
+        min_v, max_v = -10, 10
+        ax.plot([min_v, max_v], [min_v, max_v], 'r--')
+        ax.set_xlim(min_v, max_v)
+        ax.set_ylim(min_v, max_v)
+        
+        ax.set_xlabel("Theoretical Quantiles")
+        ax.set_ylabel("Standardized Residuals")
+        ax.set_title("QQ Plot", fontweight='bold')
+        ax.set_xlim(-5, 5)
+        ax.set_ylim(-5, 5)
+        save_figure("residuals_qq.png")
+        plt.show()
+
+        # Resids vs Pred (Standardized)
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.scatter(mu_log_eval, std_resid, alpha=0.1, s=2, color='gray')
         
-        # Bin mean/std
-        # Bin by predicted value
-        bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
-        bin_idx = digitize_safe(mu_log_eval, bins)
-        
-        bin_means = []
-        bin_stds = []
-        bin_centers = []
-        
-        for i in range(1, len(bins)):
-            mask_bin = bin_idx == i
-            if mask_bin.sum() > 5:
-                bin_means.append(std_resid[mask_bin].mean())
-                bin_stds.append(std_resid[mask_bin].std())
-                bin_centers.append(0.5 * (bins[i-1] + bins[i]))
-        
-        if len(bin_centers) > 0:
-            ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', 
-                        label='Binned Mean +/- 1 Std', capsize=3)
-        
-        ax.axhline(0, color='black', linestyle='--')
-        ax.axhline(1, color='green', linestyle=':', label='Ideal Std=1')
-        ax.axhline(-1, color='green', linestyle=':')
-        
-        # Grid for bins
-        for b in bins:
-            ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
-            
         # Ticks: Log -> Currency (Vertical)
         curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
+        
+        # Binned Mean/Std - ALIGN BINS WITH TICKS
+        if len(curr_ticks) > 2:
+            bins = np.array(curr_ticks)
+            bin_idx = digitize_safe(mu_log_eval, bins)
+            bin_means = []
+            bin_stds = []
+            bin_centers = []
+            
+            for i in range(1, len(bins)):
+                mask_bin = bin_idx == i
+                if mask_bin.sum() > 5:
+                    bin_means.append(std_resid[mask_bin].mean())
+                    bin_stds.append(std_resid[mask_bin].std())
+                    bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+            
+            if len(bin_centers) > 0:
+                ax.errorbar(bin_centers, bin_means, yerr=bin_stds, fmt='o', color='red', label='Mean +/- 1 Std', capsize=3)
+            
+        ax.axhline(0, color='black', linestyle='--')
+
         ax.set_xticks(curr_ticks)
         ax.set_xticklabels(curr_labels, rotation=90)
         
-        ax.set_xlabel("Predicted Price", fontsize=11)
-        ax.set_ylabel("Residual (Standard Deviations)", fontsize=11)
-        ax.set_title("Residuals vs Prediction (Normalized)", fontweight='bold')
+        ax.set_xlabel("Predicted Price (Log Scale)")
+        ax.set_ylabel("Standardized Residual")
+        ax.set_title("Standardized Residuals vs Prediction", fontweight='bold')
         
-        # Enforce X-limit cutoff for visual confirmation
+        # Enforce strict Y-limits for standardized plot
+        ax.set_ylim(-10, 10)
+
+        # PREFER TICKS FOR GRID to ensure alignment
+        for t in curr_ticks:
+            ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
+        
+        ax.set_xlabel("Predicted Price", fontsize=11)
         ax.set_xlim(left=np.log(100_000))
         
-        # Fixed Y-Range [-10, 10]
-        ax.set_ylim(-10, 10)
-        
-        # Footnote
-        plt.figtext(0.5, 0.01, "Values in Log Space. Y-axis in Standard Deviations.", 
-                    ha="center", fontsize=9, fontstyle='italic')
-        
         ax.legend()
-        plt.tight_layout(rect=[0, 0.1, 1, 0.95]) # Increased bottom margin for footnote
+        plt.tight_layout(rect=[0, 0.15, 1, 0.95])
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
+    else:
+        print("[Eval] No var_log_eval; skipping standardized residual diagnostics.")
 
         # 2b. Standardized QQ Plot (Normality of conditional noise)
         if HAVE_SCIPY:
             fig, ax = plt.subplots(figsize=(6, 6))
             stats.probplot(std_resid, dist="norm", plot=ax)
-            ax.set_title("QQ-Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold')
+            ax.set_title("QQ Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold')
             ax.set_ylabel("Ordered Standardized Residuals")
             # Add identity line
-            ax.plot([-4, 4], [-4, 4], color='gray', linestyle='--', alpha=0.5)
-            ax.set_ylim(-5, 5)
-            ax.set_xlim(-5, 5)
+            ax.plot([-10, 10], [-10, 10], color='gray', linestyle='--', alpha=0.5)
+            ax.set_ylim(-10, 10) # FAIL-CLOSED RANGE
+            ax.set_xlim(-10, 10) # FAIL-CLOSED RANGE
             ax.grid(True, alpha=0.3)
             plt.tight_layout()
             save_figure("residuals_standardized_qq.png")
@@ -1030,45 +1110,49 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.scatter(mu_log_eval, resid_log, alpha=0.05, s=2, color='#34495e')
     
-    # Binned mean residual
-    bins = np.linspace(mu_log_eval.min(), mu_log_eval.max(), 20)
-    bin_idx = digitize_safe(mu_log_eval, bins)
+    # Binned mean residual - ALIGN WITH TICKS
+    curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
     
-    bin_res_means = []
-    bin_centers = []
-    
-    for i in range(1, len(bins)):
-        mask_bin = bin_idx == i
-        if mask_bin.sum() > 5:
-            bin_res_means.append(resid_log[mask_bin].mean())
-            bin_centers.append(0.5 * (bins[i-1] + bins[i]))
-    
-    if len(bin_centers) > 0:
-        ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
+    if len(curr_ticks) > 2:
+        bins = np.array(curr_ticks)
+        bin_idx = digitize_safe(mu_log_eval, bins)
+        
+        bin_res_means = []
+        bin_centers = []
+        
+        for i in range(1, len(bins)):
+            mask_bin = bin_idx == i
+            if mask_bin.sum() > 5:
+                bin_res_means.append(resid_log[mask_bin].mean())
+                bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+        
+        if len(bin_centers) > 0:
+            ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
+
     ax.axhline(0, color='black', linestyle='--')
     
-    # Grid
-    for b in bins:
-        ax.axvline(b, color='gray', linestyle=':', alpha=0.3)
-        
     # Currency Ticks Vertical
-    curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
     ax.set_xticks(curr_ticks)
     ax.set_xticklabels(curr_labels, rotation=90)
+
+    # PREFER TICKS FOR GRID
+    for t in curr_ticks:
+        ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
     
     ax.set_xlabel("Predicted Price")
-    ax.set_ylabel("Residual")
+    ax.set_ylabel("Mean Residual")
     ax.set_title("Conditional Bias", fontweight='bold')
     
     # Enforce X-limit cutoff
     ax.set_xlim(left=np.log(100_000))
     
-    # Range limits [-10, 10]
-    ax.set_ylim(-10, 10)
+    # Range limits [-2.5, 2.5]
+    ax.set_ylim(-2.5, 2.5)
     
-    plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+    plt.figtext(0.5, 0.01, "Values in Log Space. Red Line: Binned Mean.", ha="center", fontsize=9, fontstyle='italic')
 
     ax.legend()
+    ax.grid(False) # Strict Grid Removal
     plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Margin for vertical ticks + footnote
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
@@ -1076,166 +1160,24 @@ if y_true_log_eval is not None and mu_log_eval is not None:
 
 
     # 5. Segment Stability Checks (if metadata available)
-    if 'eval_indices' in locals() and eval_indices is not None:
+    if 'eval_pos_idx' in locals() and eval_pos_idx is not None:
         try:
-            print(f"[Eval] Segment Check: Indices length {len(eval_indices)}, Residuals length {len(resid_log)}")
+            print(f"[Eval] Segment Check: Indices length {len(eval_pos_idx)}, Residuals length {len(resid_log)}")
             
-            # Use iloc with eval_pos_idx if available for safety, otherwise eval_indices
-            if 'eval_pos_idx' in locals() and eval_pos_idx is not None:
-                 meta_subset = df_pred.iloc[eval_pos_idx].copy()
-            else:
-                 meta_subset = df_pred.loc[eval_indices].copy()
+            # meta_subset is now df_pred_filtered
+            meta_subset = df_pred_filtered.copy()
 
             if len(meta_subset) == len(resid_log):
                 meta_subset['residual'] = resid_log
                 
                 # --- By Sale Year (Time/Regime Drift) ---
-                # Check for sale_year, sale_date, year_sale
-                sale_col = next((c for c in ['sale_year', 'year_sale', 'saleyear', 'sale_date'] if c in meta_subset.columns), None)
-                if sale_col:
-                    # If date, extract year
-                    if 'date' in sale_col.lower():
-                        meta_subset[sale_col] = pd.to_datetime(meta_subset[sale_col], errors='coerce').dt.year
-                    
-                    meta_subset[sale_col] = pd.to_numeric(meta_subset[sale_col], errors='coerce')
-                    
-                    # Robust Sale Year Table Function
-                    def sale_year_bin_table(meta_df, yr_col, y_true, mu, var, bin_width=1, min_count=20):
-                        years = meta_df[yr_col].values
-                        valid = np.isfinite(years)
-                        years = years[valid].astype(int)
-                        
-                        y = y_true[valid]
-                        mu_v = mu[valid]
-                        resid = y - mu_v
-                        
-                        has_var = (var is not None)
-                        if has_var:
-                            var_v = np.clip(var[valid], 1e-9, np.inf)
-                            sig_v = np.sqrt(var_v)
-                        
-                        start = (years.min() // bin_width) * bin_width
-                        stop  = ((years.max() // bin_width) + 1) * bin_width
-                        edges = np.arange(start, stop + bin_width, bin_width, dtype=int)
-                        
-                        idx = digitize_safe(years.astype(float), edges.astype(float))
-                        
-                        rows = []
-                        for i in range(1, len(edges)):
-                            m = (idx == i)
-                            n = int(m.sum())
-                            if n < min_count:
-                                continue
-                                
-                            resid_i = resid[m]
-                            mean_resid = float(np.mean(resid_i))
-                            resid_i = resid[m]
-                            mean_resid = float(np.mean(resid_i))
-                            se_mean_resid = float(np.std(resid_i, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
-                            rmse_log = float(np.sqrt(np.mean(resid_i**2)))
-                            
-                            cov_50 = cov_80 = cov_95 = float('nan')
-                            pit_mean = float('nan')
-                            
-                            if has_var:
-                                y_i = y[m]
-                                mu_i = mu_v[m]
-                                sig_i = sig_v[m]
-                                
-                                # Coverage
-                                for alpha, key in [(0.50, "cov_50"), (0.80, "cov_80"), (0.95, "cov_95")]:
-                                    z = normal_ppf_scalar(0.5 + alpha/2.0)
-                                    lower = mu_i - z * sig_i
-                                    upper = mu_i + z * sig_i
-                                    covered = float(np.mean((y_i >= lower) & (y_i <= upper)))
-                                    if key == "cov_50": cov_50 = covered
-                                    if key == "cov_80": cov_80 = covered
-                                    if key == "cov_95": cov_95 = covered
-                                
-                                # PIT
-                                pit = normal_cdf_np((y_i - mu_i) / sig_i)
-                                pit_mean = float(np.mean(pit))
-                            
-                            rows.append({
-                                "year": int(edges[i-1]),
-                                "n": n,
-                                "mean_resid": mean_resid,
-                                "se_mean_resid": se_mean_resid,
-                                "rmse_log": rmse_log,
-                                "cov_50": cov_50,
-                                "cov_80": cov_80,
-                                "cov_95": cov_95,
-                                "pit_mean": pit_mean
-                            })
-                        return pd.DataFrame(rows)
-
-                    # Compute table
-                    # Ensure alignment (y_true_log_eval is global filtered)
-                    # meta_subset has already been filtered via iloc
-                    
-                    # We need strict alignment. meta_subset is from df_pred.iloc[eval_pos_idx] taking mask_global into account?
-                    # Wait, eval_pos_idx was filtered by mask_global in step 1526.
-                    # So meta_subset corresponds exactly to y_true_log_eval.
-                    
-                    tbl = sale_year_bin_table(meta_subset, sale_col, y_true_log_eval, mu_log_eval, var_log_eval)
-                    
-                    if not tbl.empty:
-                        print("\n[Eval] Sale-year stratified metrics (1-year bins):")
-                        print(tbl[['year', 'n', 'mean_resid', 'rmse_log', 'pit_mean', 'cov_50', 'cov_95']].head()) # Extended Print
-                        
-                        # Plot Mean Residual +/- SE
-                        fig, ax = plt.subplots(figsize=(10, 5))
-                        ax.errorbar(tbl['year'], tbl['mean_resid'], yerr=tbl['se_mean_resid'], fmt='o-', color='purple', capsize=4, label='Mean Residual')
-                        ax.axhline(0, color='black', linestyle='--')
-                        
-                        # Integers ticks
-                        ax.set_xticks(tbl['year'])
-                        ax.set_xticklabels(tbl['year'].astype(int), rotation=45)
-                        
-                        ax.set_xlabel("Sale Year")
-                        ax.set_ylabel("Mean Residual +/- Standard Error")
-                        ax.set_title("Performance Stability by Sale Year", fontweight='bold')
-                        plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
-                        plt.tight_layout(rect=[0, 0.1, 1, 0.95])
-                        save_figure("residuals_by_sale_year.png")
-                        plt.show()
-
-                        # Plot Coverage (Un-Nested)
-                        if 'cov_95' in tbl.columns and not tbl['cov_95'].isna().all():
-                             fig, ax = plt.subplots(figsize=(10, 5))
-                             ax.plot(tbl['year'], tbl['cov_50'], 'o-', label='50% CI')
-                             ax.plot(tbl['year'], tbl['cov_80'], 'o-', label='80% CI')
-                             ax.plot(tbl['year'], tbl['cov_95'], 'o-', label='95% CI')
-                             
-                             ax.axhline(0.50, color='gray', linestyle=':')
-                             ax.axhline(0.80, color='gray', linestyle=':')
-                             ax.axhline(0.95, color='gray', linestyle=':')
-                             
-                             ax.set_xticks(tbl['year'])
-                             ax.set_xticklabels(tbl['year'].astype(int), rotation=45) # SALE YEAR IS ALREADY INT-LIKE
-                             ax.set_xlabel("Sale Year")
-                             ax.set_ylabel("Empirical Coverage")
-                             ax.set_title("Uncertainty Calibration by Sale Year", fontweight='bold')
-                             ax.legend()
-                             save_figure("coverage_by_sale_year.png")
-                             plt.show()
+                # This was moved to the top-level, so skip here.
 
                 # --- By Building Class (Residuals) ---
                 bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
                 bldg_col = next((c for c in bldg_class_candidates if c in meta_subset.columns), None)
                 
                 if bldg_col:
-                    meta_subset[bldg_col] = meta_subset[bldg_col].astype(str).str.strip()
-                    # Aggregate
-                    grp = meta_subset.groupby(bldg_col)['residual']
-                    
-                    bldg_stats = pd.DataFrame({
-                        'mean_resid': grp.mean(),
-                        'std_resid': grp.std(),
-                        'count': grp.count()
-                    })
-                    # Filter - Lower threshold to see more classes as requested
-                    # Matched to latent plot or simply lower (e.g. 20)
                     # Define standard order (NYC Consumer-facing)
                     class_labels_ordered = [
                         ('R', 'Condominiums'), ('D', 'Elevator Apartments'), ('C', 'Walk-up Apartments'),
@@ -1250,63 +1192,48 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     code_map = {k: v for k, v in class_labels_ordered}
                     ordered_codes = [k for k, v in class_labels_ordered]
 
-                    # Create full labels
-                    bldg_stats['label'] = bldg_stats.index.to_series().apply(
-                        lambda c: code_map.get(c[0].upper(), c) if len(c) > 0 else "Unknown"
-                    )
+                    # AGGREGATE BY MAJOR CLASS
+                    # 1. Extract first char
+                    meta_subset['major_class'] = meta_subset[bldg_col].astype(str).str[0].str.upper()
                     
-                    # Sort by Fixed Order instead of Mean Residual
-                    # (Filter count > 20 first)
+                    # 2. Group by major class
+                    bldg_stats = meta_subset.groupby('major_class')['residual'].agg(['mean', 'std', 'count', 'sem'])
+                    
+                    # 3. Filter small counts
                     bldg_stats = bldg_stats[bldg_stats['count'] > 20]
-                    
-                    # Re-sort to match class_labels_ordered
-                    # Create a categorical type for sorting
-                    bldg_stats['sort_key'] = bldg_stats.index.str[0].str.upper()
-                    bldg_stats['sort_rank'] = bldg_stats['sort_key'].apply(lambda x: ordered_codes.index(x) if x in ordered_codes else 999)
-                    bldg_stats = bldg_stats.sort_values('sort_rank')
-                    
+                        
                     if not bldg_stats.empty:
-                        print(f"\n[Eval] Residuals by Building Class (Top {len(bldg_stats)}):")
-                        print(bldg_stats.head())
+                        print(f"\n[Eval] Residuals by Building Class (Major Groups):")
+                        # print(bldg_stats.head()) 
+
+                        # Plot Mean Residual +/- SE
+                        # We want to match the Latent Space color/order logic
+                        # Latent space uses a specific order.
                         
-                        fig, ax = plt.subplots(figsize=(12, 6))
-                        # Use integer x-axis for placing text
-                        x_pos = np.arange(len(bldg_stats))
+                        fig, ax = plt.subplots(figsize=(12, 6)) # Wider figure
                         
-                        ax.errorbar(x_pos, bldg_stats['mean_resid'], yerr=bldg_stats['std_resid'], 
-                                    fmt='o', color='teal', capsize=5, label='Mean +/- 1 Std')
+                        # Create temporary columns for sorting
+                        # Note: index is already MAPPED code now
+                        bldg_stats['sort_rank'] = bldg_stats.index.to_series().apply(lambda x: ordered_codes.index(x) if x in ordered_codes else 999)
+                        bldg_stats = bldg_stats.sort_values('sort_rank')
+                        
+                        # Map to full names for plotting
+                        # index is code 'R', 'D', etc.
+                        full_labels = [code_map.get(idx, idx) for idx in bldg_stats.index]
+                        
+                        # Plot
+                        ax.errorbar(range(len(bldg_stats)), bldg_stats['mean'], yerr=bldg_stats['std'] / np.sqrt(bldg_stats['count']),
+                               fmt='o', color='teal', capsize=4, label='Mean Residual')
                         ax.axhline(0, color='black', linestyle='--')
                         
-                        # Set limits to [-1, 1] usually enough for mean, but std error bars might exceed
-                        # User wants no abbreviation to "resid"
-                        ax.set_ylabel("Mean Residual +/- Standard Deviation")
+                        ax.set_xlabel("Building Class")
+                        ax.set_ylabel("Mean Residual")
                         ax.set_title("Performance by Building Class", fontweight='bold')
                         
-                        # Replace X-axis ticks with Vertical Text Labels
-                        ax.set_xticks(x_pos)
-                        ax.set_xticklabels([]) # Hide default labels
-                        
-                        for i, (idx, row) in enumerate(bldg_stats.iterrows()):
-                            # Plot text vertically (bottom to top)
-                            lbl = row['label']
-                            # Place text slightly below axis or at the point? 
-                            # Usually "tick labels" are below.
-                            # User said "vertical axis tick labels rather than a b c etc"
-                            # Standard solution: vertical rotation of x-labels
-                            ax.text(i, ax.get_ylim()[0] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.05, 
-                                    lbl, rotation=90, ha='center', va='top', fontsize=10, 
-                                    transform=ax.transData)
-                                    
-                        # Or just use standard set_xticklabels with rotation=90?
                         # "vertical axis tick labels" -> yes, rotated ticks.
-                        ax.set_xticklabels(bldg_stats['label'], rotation=90, fontsize=10)
+                        ax.set_xticks(range(len(bldg_stats)))
+                        ax.set_xticklabels(full_labels, rotation=90, fontsize=10)
                         
-                        plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
-                        
-                        # Ensure margins for tall labels
-                        plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
-                        
-                        # Ensure margins for tall labels
                         plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure margins for tall labels (Significantly increased)
@@ -1341,22 +1268,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         plt.show()
                 
                 # --- By Building Class ---
-                bldg_col = next((c for c in ["bldg_class", "building_class", "bldgclass"] if c in meta_subset.columns), None)
-                if bldg_col:
-                    # First letter only
-                    meta_subset['class_major'] = meta_subset[bldg_col].astype(str).str[0].str.upper()
-                    class_stats = meta_subset.groupby('class_major')['residual'].agg(['mean', 'count', 'std'])
-                    class_stats = class_stats[class_stats['count'] > 50].sort_index()
-                    
-                    fig, ax = plt.subplots(figsize=(10, 5))
-                    ax.bar(class_stats.index, class_stats['mean'], yerr=class_stats['std'] / np.sqrt(class_stats['count']),
-                           capsize=5, color='#e67e22', alpha=0.7)
-                    ax.axhline(0, color='black', linewidth=1)
-                    ax.set_xlabel("Building Class (Major)")
-                    ax.set_ylabel("Mean Residual +/- Standard Error")
-                    ax.set_title("Residual Stability by Building Class", fontweight='bold')
-                    save_figure("residuals_by_bldg_class.png")
-                    plt.show()
+                # (Duplicate block removed - see above)
                     
             else:
                 print("[Eval] Warning: Metadata index alignment failed. Skipping segment plots.")
@@ -1544,8 +1456,13 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
                   plt.colorbar(hb, ax=ax, label="Mean Residual")
-                  ax.set_title("Spatial Residual Map", fontweight='bold')
-                  plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+                  # Infer CRS based on coordinates
+                  is_geo = False
+                  if valid_geo[x_col].max() < 185 and valid_geo[x_col].min() > -185:
+                      is_geo = True
+                  
+                  # Standardized Title
+                  ax.set_title("Spatial Residual Map", fontweight='bold', fontsize=12)
                   
                   # Remove Lat/Long Ticks
                   ax.set_xticks([])
@@ -1554,17 +1471,27 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   ax.set_ylabel("")
                   
                   # Try to enforce aspect ratio if we assume lat/lon
-                  ax.set_aspect('equal', adjustable='box')
+                  if is_geo:
+                      ax.set_aspect('equal', adjustable='box')
 
                   # Add Basemap if possible
                   try:
                       import contextily as cx
-                      # Assuming WGS84 (lat/lon) for data; contextily expects WebMercator usually,
-                      # but we can try letting it reproject or specifying crs if supported.
-                      # Safest basic usage for standard lat/lon data plotted on ax:
-                      cx.add_basemap(ax, crs='EPSG:4326', source=cx.providers.CartoDB.Positron)
+                      # Heuristic for CRS
+                      if is_geo:
+                           # Data is Lat/Lon (EPSG:4326)
+                           # contextily needs to know this to reproject background
+                           cx.add_basemap(ax, crs='EPSG:4326', source=cx.providers.CartoDB.Positron)
+                      else:
+                           # Data is Projected (likely local or 3857)
+                           # If it's NYC data (EPSG:2263), we should tell contextily
+                           # Try 2263 if it looks like NYC coordinates (approx range checks?) or just try default
+                           # For now, let's assume if it's projected it might match basemap or we assume EPSG:2263 (LI) for this dataset usage
+                           # Safest fallback: try EPSG:2263 since user likely uses that for NYC data
+                           cx.add_basemap(ax, crs='EPSG:2263', source=cx.providers.CartoDB.Positron)
                   except (ImportError, Exception) as e_map:
-                      print(f"[Eval] Could not add basemap (contextily): {e_map}")
+                      # This often fails if no internet, but user specifically asked "no basemap?" so we should clarify failure.
+                      print(f"[Eval] Could not add basemap (contextily): {e_map}. Check internet/CRS.")
                   
                   save_figure("residuals_spatial_map.png")
                   plt.show()
@@ -1683,17 +1610,39 @@ try:
 
     print(f"\n[Eval] Z Importance: Max |corr| pair for grouping: dims={pair}, corr={pair_corr:.6f}")
 
-    mse_base, stats_g = perm_importance_groups(z_imp, y_imp, predict_wrapper, groups, n_repeats=5, seed=123)
+    mse_base, stats_g = perm_importance_groups(z_imp, y_imp, predict_wrapper, groups, n_repeats=10, seed=123)
     print(f"[Eval] Baseline MSE (on subset): {mse_base:.4f}")
     
     print("\n[Eval] Latent Importance (Delta MSE):")
     for g, mean_d, std_d in stats_g:
         print(f"  Group {g}: delta_MSE={mean_d:.4f} +/- {std_d:.4f}")
+        
+    # Determine plot dimensions from importance if possible
+    # Just take top single groups
+    # Flatten stats to find best singles
+    single_imps = []
+    for g, mean_d, _ in stats_g:
+        if len(g) == 1:
+            single_imps.append((g[0], mean_d))
+    
+    if len(single_imps) >= 2:
+        single_imps.sort(key=lambda x: x[1], reverse=True)
+        plot_dim1 = single_imps[0][0]
+        plot_dim2 = single_imps[1][0]
+        print(f"[Eval] Updated plotting axes to Top-2 Single contributors: z{plot_dim1+1} and z{plot_dim2+1}")
+    else:
+        # Fallback to pair if it's dominant or defaults
+        plot_dim1, plot_dim2 = 0, 1 # Default
+        if len(pair) == 2:
+             plot_dim1, plot_dim2 = pair[0], pair[1]
+             print(f"[Eval] Using correlated pair for axes: z{plot_dim1+1}, z{plot_dim2+1}")
 
 except AssertionError as e_gate:
     print(f"\n[Eval] SKIP Z Importance: {e_gate}")
+    plot_dim1, plot_dim2 = 0, 1 # Default
 except Exception as e_imp:
     print(f"\n[Eval] Z Importance Analysis failed: {e_imp}")
+    plot_dim1, plot_dim2 = 0, 1 # Default
     for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
         if hasattr(vae_model, attr):
             print(f"[Eval]   Found relevant attribute: {attr}")
@@ -1812,85 +1761,6 @@ except Exception as e_imp:
         print(f"[Eval]   Encoder weight analysis failed: {e}")
     
 
-
-    # --- Latent Importance for Price Prediction (Permutation Test) ---
-    print("\n[Eval] Calculating Latent Importance for Price Prediction (Z -> Y)...")
-    
-    # Default plot dimensions (if importance fails)
-    plot_dim1 = 0
-    plot_dim2 = 1
-    
-    try:
-        # Check for price head
-        if not hasattr(vae_model, 'price_mean_head'):
-            print("[Eval]   No 'price_mean_head' found on model. Skipping Z->Y importance.")
-        else:
-            # 1. Baseline Performance (MSE/R2 using all Z)
-            # Use eval subset only to match y_true_log_eval size
-            # We now have eval_pos_idx which are integer positions in mu_z (if mu_z covers full dataset)
-            
-            if 'eval_pos_idx' in locals() and eval_pos_idx is not None:
-                # Use only the evaluation set for this test
-                z_eval_subset = mu_z[eval_pos_idx]
-                y_target_subset = y_true_log_eval # Already aligned with eval_pos_idx
-                
-                # Subsample if too large
-                n_perm = min(5000, len(z_eval_subset))
-                perm_sub_idx = np.random.choice(len(z_eval_subset), n_perm, replace=False)
-                
-                z_batch = z_eval_subset[perm_sub_idx]
-                y_target = y_target_subset[perm_sub_idx]
-                y_target = y_target_subset[perm_sub_idx]
-            else:
-                 print("[Eval] Warning: eval_pos_idx not found. SKIPPING Z->Y Test to avoid index mismatch.")
-                 # Removed unsafe fallback
-                 z_batch = None
-            
-            if z_batch is not None:
-                # Helper to predict Y from Z
-                def predict_y_from_z(z_in):
-                    t_z = torch.from_numpy(z_in).float().to(DEVICE)
-                    with torch.no_grad():
-                        # Output of price_mean_head is usually (N, 1)
-                        y_out = vae_model.price_mean_head(t_z)
-                    return y_out.cpu().numpy().ravel()
-                
-                y_pred_base = predict_y_from_z(z_batch)
-                mse_base = np.mean((y_target - y_pred_base)**2)
-                
-                print(f"[Eval]   Baseline MSE (subset n={n_perm}): {mse_base:.4f}")
-                
-                # 2. Permute each dimension and measure MSE increase
-                importances = []
-                for dim_i in range(z_batch.shape[1]):
-                    z_permuted = z_batch.copy()
-                    # Shuffle ONLY this dimension
-                    np.random.shuffle(z_permuted[:, dim_i])
-                    
-                    y_pred_perm = predict_y_from_z(z_permuted)
-                    mse_perm = np.mean((y_target - y_pred_perm)**2)
-                    
-                    # Importance = Increase in MSE
-                    imp = mse_perm - mse_base
-                    importances.append(imp)
-                    print(f"[Eval]     z{dim_i+1} Importance (MSE increase): {imp:.4f}")
-                
-                # Normalize to percentages
-                total_imp = sum(importances) + 1e-9
-                print(f"[Eval]   Relative Importance: " + 
-                      ", ".join([f"z{i+1}={100*imp/total_imp:.0f}%" for i, imp in enumerate(importances)]))
-                
-                if len(importances) >= 3 and importances[2] / total_imp > 0.10:
-                    print("[Eval]   NOTE: z3 has >10% importance. Consider visualizing it.")
-                
-                # Update plotting dimensions to top 2 important latents
-                top_indices = np.argsort(importances)[::-1] # Descending importance
-                plot_dim1 = top_indices[0]
-                plot_dim2 = top_indices[1]
-                print(f"[Eval]   Updated plotting axes to Top-2 contributors: z{plot_dim1+1} (x) and z{plot_dim2+1} (y)")
-                
-    except Exception as e:
-        print(f"[Eval]   Latent importance failed: {e}")
 
     label_x = f"z{plot_dim1+1}"
     label_y = f"z{plot_dim2+1}"
@@ -2156,13 +2026,18 @@ except Exception as e_imp:
         ax.set_ylim(y_lim_fixed)
         # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
-        fig.suptitle("Latent Space by Price", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Hexbin showing mean price per region", fontsize=9, color='gray', pad=3)
+        # Apply fixed axis limits
+        ax.set_xlim(x_lim_fixed)
+        ax.set_ylim(y_lim_fixed)
+        
+        # Standardized Title (No Suptitle)
+        ax.set_title("Latent Space by Price\n(Hexbin of Mean Price)", fontweight='bold', fontsize=12)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+        ax.grid(False) # Strict removal
         
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout()
         save_figure("latent_space_price_hexbin.png")
         plt.show()
     
@@ -2173,8 +2048,11 @@ except Exception as e_imp:
         hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
                        gridsize=40, cmap='Blues', mincnt=1, linewidths=0.2)
         
+        # Add min/max counts to colorbar per request
         cbar = plt.colorbar(hb, ax=ax)
-        cbar.set_label("Count", fontsize=10)
+        min_c, max_c = int(hb.get_array().min()), int(hb.get_array().max())
+        cbar.set_label(f"Count (Max={max_c})", fontsize=10) # User asked for max/min counts
+
         
         ax.set_xlabel(label_x, fontsize=11)
         ax.set_ylabel(label_y, fontsize=11)
@@ -2182,15 +2060,15 @@ except Exception as e_imp:
         # Apply fixed axis limits
         ax.set_xlim(x_lim_fixed)
         ax.set_ylim(y_lim_fixed)
-        # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
-        fig.suptitle("Latent Space Density", fontsize=14, fontweight='bold', y=0.98)
-        ax.set_title("Hexbin showing point concentration", fontsize=9, color='gray', pad=3)
+        # Standardized Title
+        ax.set_title("Latent Space Density\n(Hexbin Count)", fontweight='bold', fontsize=12)
         
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+        ax.grid(False) # Strict removal
         
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout()
         save_figure("latent_space_density.png")
         plt.show()
 
@@ -2233,15 +2111,15 @@ except Exception as e_imp:
             # Apply fixed axis limits
             ax.set_xlim(x_lim_fixed)
             ax.set_ylim(y_lim_fixed)
-            # ax.set_aspect('equal', adjustable='box')  # Commented: asymmetric limits
         
-            fig.suptitle("Latent Space by Size", fontsize=14, fontweight='bold', y=0.98)
-            ax.set_title(f"Scatter with density contours · {size_col}", fontsize=9, color='gray', pad=3)
+            # Standardized Title
+            ax.set_title(f"Latent Space by Size\n(Scatter + Density Contours: {size_col})", fontweight='bold', fontsize=12)
             
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
+            ax.grid(False) # Strict removal
             
-            plt.tight_layout(rect=[0, 0, 1, 0.95])
+            plt.tight_layout()
             save_figure("latent_space_size.png")
             plt.show()
             
@@ -2387,6 +2265,8 @@ except Exception as e_imp:
         
         ax.set_title("Latent Space by Building Class", fontsize=12, fontweight='bold', pad=8)
         
+        ax.grid(False) # Strict removal
+        
         # Legend outside
         ax.legend(fontsize=8, loc='center left', bbox_to_anchor=(1.02, 0.5), 
                   framealpha=0.9, title="Building Class")
@@ -2401,22 +2281,29 @@ except Exception as e_imp:
     plt.show()
     
     # --- 7d-NEW. Latent Marginal Distributions (Uniform Scale) ---
-    # Plot top 3 dimensions with uniform scaling for comparability
-    n_dims = min(mu_z.shape[1], 3)
+    # Plot top dimensions used in scatter plots
+    dims_to_plot = [plot_dim1, plot_dim2]
+    n_dims = len(dims_to_plot)
+    
     fig, axes = plt.subplots(1, n_dims, figsize=(4*n_dims, 3.5), sharey=True, sharex=True)
     if n_dims == 1:
         axes = [axes]
     
     # Compute global limit for x-axis
-    z_global_min = np.percentile(mu_z[:, :n_dims], 0.5)
-    z_global_max = np.percentile(mu_z[:, :n_dims], 99.5)
+    z_global_min = np.percentile(mu_z[:, dims_to_plot], 0.5)
+    z_global_max = np.percentile(mu_z[:, dims_to_plot], 99.5)
     pad = (z_global_max - z_global_min) * 0.1
     xlim_global = (z_global_min - pad, z_global_max + pad)
 
-    for d, ax in enumerate(axes):
+    for i, d in enumerate(dims_to_plot):
+        ax = axes[i]
         ax.hist(mu_z[:, d], bins=40, alpha=0.8, color='#3498db', 
                 edgecolor='white', linewidth=0.3, density=True)
-        ax.set_xlabel(f"Latent Dim {d+1}", fontsize=10)
+        
+        # Use automated label if available
+        # We need to construct the label again or pass it down?
+        # Re-use simple label for now
+        ax.set_xlabel(f"Latent Dim z{d+1}", fontsize=10)
         if d == 0:
             ax.set_ylabel("Density", fontsize=10)
         

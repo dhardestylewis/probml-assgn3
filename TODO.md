@@ -91,16 +91,7 @@
 - [ ] "greater vertical spread across poster"
 
 ### P1 - Post-Training Eval Visualization Feedback (2025-12-22 Session)
-- [ ] Price colorbar legend: define all values beyond $50M up to max value $4111.1M (use "B" for billion)
-- [ ] Include min and max count values in density hexbin colorbar
-- [ ] Building class legend: organize using official NYC listing order, fix color ordering to match legend order
-- [ ] Student-t reference lines: use multiplicative ratios (ν/2 and ν*2) around fitted value, not additive offsets
-- [ ] QQ plot: ensure Student-t CI and fit line use same fitted distribution parameters
-- [ ] Residual scale consistency: one plot shows 15 (log space), other shows 200000 (level space) - clarify or unify
-- [ ] Convergence plot: don't say "mean" for single fold, add loss function footnote
-- [ ] All plots: spell out "Dimension" not "Dim", center titles on axes not figure
-- [ ] Latent space: add variance check before forcing equal axes, include hexbin+contour for all plots
-- [ ] Find and restore original QQ plot code from probml.py for comparison
+*(Completed and moved to TODO-COMPLETED.md)*
 
 ### P2 - Important Refinements
 *(No active tasks)*

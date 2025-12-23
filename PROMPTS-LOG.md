@@ -590,3 +590,59 @@ At the end of each substantive answer, include a short meta-calibration block wi
 > greater vertical spread across poster
 >
 > all of the above in not yet COMPLETE we are not to complete them tonight we are instead wrapping up ensure adequately reflected my verbatim unabbreviated directions and anything more from your CoT
+
+### 137. [2025-12-22 19:51] Sale Year Coverage Axis
+**User Prompt:**
+> uncertainty calibration by sale year empirical coverage axis should just span from 0 to 1
+
+### 138. [2025-12-22 19:52] QQ Plot Range Check
+**User Prompt:**
+> QQ plot still not -10 10 range for both axes?
+
+### 139. [2025-12-22 19:54] Residuals vs References Refinement
+**User Prompt:**
+> r = log(y_true).... immediately above residuals vs heavy tailed references plot should be a footnote and written in actual mathematical notation?
+>
+> relabel that one vs references
+>
+> ensure its fit lines are all labelled similarly to each other student t nu (actual greek symbol) = __ (best fit, if applicable)
+
+### 140. [2025-12-22 19:54] Global Data Cutoff
+**User Prompt:**
+> we should cut off all data above 250M
+
+### 141. [2025-12-22 19:56] TODO Tracking Inquiry
+**User Prompt:**
+> have you been recording everything i have been writing into TODO and marking them off each and every prompt?
+
+### 142. [2025-12-22 19:58] Strict Timestamp Request
+**User Prompt:**
+> i need to see down to the minute times for everything you insert into the TODO have you read your guidelines recently?
+
+### 144. [2025-12-22 20:04] Bin Alignment & Ranges
+**User Prompt:**
+### 145. [2025-12-22 20:04] Building Class Broken
+**User Prompt:**
+> you still havent fixed performance by building class against all my crits
+>
+> just look at it
+
+### 146. [2025-12-22 20:04] Spatial Title Simplification
+**User Prompt:**
+> doesnt need subtitle at all
+
+### 147. [2025-12-22 20:05] Use Importance Ordering
+**User Prompt:**
+> why are we doing z1 against z2 now instead of biggest importance against second?
+
+### 149. [2025-12-22 20:05] Latent Building Class Gridlines
+**User Prompt:**
+> nor latent space by building class
+
+### 151. [2025-12-22 20:06] Residuals vs References Range
+**User Prompt:**
+> make the residuals vs references plots span -2.5 to 2.5
+
+### 154. [2025-12-22 20:08] Git Push Verification
+**User Prompt:**
+> are you still pushing to git every prompt too
