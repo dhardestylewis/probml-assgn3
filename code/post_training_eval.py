@@ -1352,6 +1352,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.set_xticklabels(full_labels, rotation=90)
                         
                         ax.legend(loc='upper right', framealpha=0.9)
+                        ax.spines['top'].set_visible(False)
+                        ax.spines['right'].set_visible(False)
+                        ax.grid(False)
                         
                         # Note moved to xlabel
                         # plt.figtext(0.5, 0.01, f"Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
@@ -1384,7 +1387,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.axhline(0, color='black', linestyle='--')
                         ax.set_xlabel("Decade Built")
                         ax.set_ylabel("Mean Residual +/- Standard Error")
-                        ax.set_title("Residual Stability by Year Built", fontweight='bold')
+                        ax.set_title("Residual Stability by Year Built", fontweight='bold', pad=8)
+                        ax.spines['top'].set_visible(False)
+                        ax.spines['right'].set_visible(False)
+                        ax.grid(False)
+                        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
                         save_figure("residuals_by_year.png")
                         plt.show()
                 
