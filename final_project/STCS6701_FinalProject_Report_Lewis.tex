@@ -209,7 +209,7 @@ To assess whether the model exhibits systematic geographic bias, I map residuals
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.7\textwidth]{residuals_spatial_map.png}
+    \includegraphics[width=0.5\textwidth]{residuals_spatial_map.png}
     \caption{Spatial distribution of residuals across NYC. Red indicates overprediction, blue indicates underprediction. Visible clustering suggests spatial dependencies not captured by the model.}
     \label{fig:spatial-residuals}
 \end{figure}
@@ -229,22 +229,13 @@ I assess the calibration of the model's predictive intervals across sale years (
 
 Finally, I inspect the learned latent variables. For properties with observed $y_i$, I compute the posterior mean $\mu_z(x_i, y_i)$ and plot the top two dimensions by variance contribution, $(z_3, z_1)$, colored by sale-price deciles (Figure~\ref{fig:latent-price}).
 
-\begin{figure}[t]
+\begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{latent_space_price.png}
-    \caption{Latent space visualization: posterior means $(z_3, z_1)$ colored by sale-price deciles ($n \approx 90{,}000$ properties). Dimensions selected by variance: $z_3$ explains 50\%, $z_1$ explains 30\%. A smooth gradient along one axis indicates that one latent dimension captures a value/size continuum.}
-    \label{fig:latent-price}
-\end{figure}
-
-The resulting scatter shows a smooth gradient of sale-price deciles along approximately one latent axis, suggesting that a single factor roughly orders properties along a ``value/size'' continuum. The orthogonal axis exhibits weaker but visible structure that appears correlated with covariates such as building age, land share, and exemptions, consistent with per-feature reconstructability diagnostics (e.g., moderate $R^2$ for reconstructing \texttt{assess\_total}, \texttt{exempt\_total}, \texttt{lotarea}, and \texttt{yearbuilt} from $z$).
-
-When building-class information is available (e.g., small 1--4 family homes, large elevator buildings, mixed-use parcels), I repeat the latent scatter colored by building class (Figure~\ref{fig:latent-building-class}). Building classes form identifiable striations in this plot, indicating that the latent factors capture structural differences across property types, even though the model is not explicitly conditioned on building class.
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=0.8\textwidth]{latent_space_bldg.png}
-    \caption{Latent space visualization: posterior means $(z_3, z_1)$ colored by building class ($\sim$17 aggregated categories). Building classes form identifiable striations, indicating that the latent factors encode property-type structure.}
-    \label{fig:latent-building-class}
+    \includegraphics[width=0.48\textwidth]{latent_space_price.png}
+    \hfill
+    \includegraphics[width=0.48\textwidth]{latent_space_bldg.png}
+    \caption{Latent space visualizations: posterior means $(z_3, z_1)$ colored by sale-price deciles (left, $n \approx 90{,}000$) and building class (right, $\sim$17 categories). Dimensions selected by variance: $z_3$ explains 50\%, $z_1$ explains 30\%. A smooth price gradient and building-class striations indicate interpretable latent structure.}
+    \label{fig:latent-space}
 \end{figure}
 
 Overall, the MIWAE model discovers a compact latent representation that organizes properties along interpretable axes and supports competitive predictive performance relative to a flexible tree baseline, while exposing clear heavy-tailed residual structure and leftover signal for future model refinements (e.g., heavier-tailed likelihoods for log prices or richer price heads).
@@ -269,16 +260,24 @@ Beyond the immediate plans, future work could involve incorporating spatial depe
 \section*{References}
 
 \begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=0pt]
+    % Core VAE/MIWAE methodology
     \item Kingma, D. P. and Welling, M. (2014). Auto-Encoding Variational Bayes. \textit{Proceedings of the 2nd International Conference on Learning Representations (ICLR)}.
     \item Burda, Y., Grosse, R., and Salakhutdinov, R. (2016). Importance Weighted Autoencoders. \textit{Proceedings of the 4th International Conference on Learning Representations (ICLR)}.
     \item Mattei, P.-A. and Frellsen, J. (2019). MIWAE: Deep Generative Modelling and Imputation of Incomplete Data Sets. \textit{Proceedings of the 36th International Conference on Machine Learning (ICML)}, PMLR 97:4413--4423.
     \item Kingma, D. P., Rezende, D. J., Mohamed, S., and Welling, M. (2014). Semi-Supervised Learning with Deep Generative Models. \textit{Advances in Neural Information Processing Systems 27 (NeurIPS)}.
+    % Recent ML for property valuation
+    \item Xue, J., Yang, Y., and Chen, H. (2024). Scalable Property Valuation Models via Graph-based Deep Learning. \textit{arXiv preprint arXiv:2405.00838}.
+    \item Joshi, A. and Kumar, P. (2022). Machine Learning Applications to Land and Structure Valuation. \textit{Journal of Real Estate Finance and Economics}, 65:1--28.
+    \item Levantesi, S. and Piscopo, G. (2020). The Importance of Economic Variables on London Real Estate Market: A Random Forest Approach. \textit{Risks}, 8(4):112.
+    % Statistics and methodology
     \item Lange, K. L., Little, R. J. A., and Taylor, J. M. G. (1989). Robust Statistical Modeling Using the $t$ Distribution. \textit{Journal of the American Statistical Association}, 84(408):881--896.
     \item Gneiting, T., Balabdaoui, F., and Raftery, A. E. (2007). Probabilistic Forecasts, Calibration and Sharpness. \textit{Journal of the Royal Statistical Society: Series B}, 69(2):243--268.
     \item Little, R. J. A. and Rubin, D. B. (2019). \textit{Statistical Analysis with Missing Data}. 3rd ed. Wiley.
+    % Foundational hedonic pricing
     \item Rosen, S. (1974). Hedonic Prices and Implicit Markets. \textit{Journal of Political Economy}, 82(1):34--55.
     \item Berry, B. J. L. and Bednarz, R. S. (1975). A Hedonic Model of Prices and Assessments for Single-Family Homes. \textit{Land Economics}, 51(1):21--40.
     \item International Association of Assessing Officers (IAAO). (2013). \textit{Standard on Ratio Studies}. Kansas City, MO.
+    % Data sources
     \item NYC Department of City Planning. MapPLUTO: Extensive Land Use and Geographic Data at the Tax Lot Level. \url{https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page}
     \item NYC Department of Finance. ACRIS: Automated City Register Information System. \url{https://www.nyc.gov/site/finance/taxes/acris.page}
 \end{enumerate}
