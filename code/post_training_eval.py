@@ -317,14 +317,14 @@ def _report_metrics(y_true_log, y_true, mu_log, var_log, label_prefix=""):
     tag = f" ({label_prefix})" if label_prefix else ""
     print(f"\n=== Posterior Predictive Metrics{tag} ===")
     print(f"Average log posterior predictive (log p(y_log | x)): {avg_log_pp:.4f}")
-    print(f"Average NLL (log-price space):                     {avg_nll_log:.4f}")
-    print(f"RMSE (log-price):                                  {rmse_log:.4f}")
-    print(f"MAE  (log-price):                                  {mae_log:.4f}")
-    print(f"RMSE (price):                                      {rmse_price:,.4f}")
-    print(f"MAE  (price):                                      {mae_price:,.4f}")
-    print(f"MAPE (price, y_true > 0):                          {mape_price * 100:,.2f}%")
-    print(f"Median |y - y_hat| (log):                              {median_abs_log:.4f}")
-    print(f"95th pct |y - y_hat| (log):                            {p95_abs_log:.4f}")
+    print(f"Average Negative Log-Likelihood (log-price space): {avg_nll_log:.4f}")
+    print(f"Root Mean Square Error (log-price):                {rmse_log:.4f}")
+    print(f"Mean Absolute Error    (log-price):                {mae_log:.4f}")
+    print(f"Root Mean Square Error (price):                    {rmse_price:,.4f}")
+    print(f"Mean Absolute Error    (price):                    {mae_price:,.4f}")
+    print(f"Mean Absolute Percentage Error (price, y_true > 0):{mape_price * 100:,.2f}%")
+    print(f"Median Absolute Residual (log-price):              {median_abs_log:.4f}")
+    print(f"95th Percentile Absolute Residual (log-price):     {p95_abs_log:.4f}")
 
 # ----------------------------------------------------------
 # 4. Metrics & Diagnostics Preparation
@@ -942,9 +942,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylabel("Residual (Standard Deviations)", fontsize=11)
         ax.set_title("Residuals vs Prediction (Normalized)", fontweight='bold')
         
-        # Fixed Y-Range [-10, 10] as requested (or 20 for standardized?)
-        # User said "make that range -10 10 for all residual plots"
-        # Standardized might be larger, but let's stick to 10 for consistency if requested.
+        # Enforce X-limit cutoff for visual confirmation
+        ax.set_xlim(left=np.log(100_000))
+        
+        # Fixed Y-Range [-10, 10]
         ax.set_ylim(-10, 10)
         
         # Footnote
@@ -952,7 +953,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     ha="center", fontsize=9, fontstyle='italic')
         
         ax.legend()
-        plt.tight_layout(rect=[0, 0.05, 1, 1]) # Space for footnote/vertical ticks
+        plt.tight_layout(rect=[0, 0.1, 1, 0.95]) # Increased bottom margin for footnote
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
 
@@ -993,6 +994,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylabel("|Residual|")
         ax.set_title("Absolute Residuals vs Prediction", fontweight='bold')
         
+        # Enforce X-limit cutoff
+        ax.set_xlim(left=np.log(100_000))
+        
         # Dollar Ticks Vertical
         ax.set_xticks(curr_ticks)
         ax.set_xticklabels(curr_labels, rotation=90)
@@ -1001,7 +1005,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.set_ylim(0, 10)
         
         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
-        plt.tight_layout(rect=[0, 0.05, 1, 1])
+        plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Larger bottom margin for vertical ticks + footnote
         save_figure("residuals_absolute_vs_pred.png")
         plt.show()
         
@@ -1056,13 +1060,16 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.set_ylabel("Residual")
     ax.set_title("Conditional Bias", fontweight='bold')
     
+    # Enforce X-limit cutoff
+    ax.set_xlim(left=np.log(100_000))
+    
     # Range limits [-10, 10]
     ax.set_ylim(-10, 10)
     
     plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
 
     ax.legend()
-    plt.tight_layout(rect=[0, 0.05, 1, 1]) # Margin for vertical ticks
+    plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Margin for vertical ticks + footnote
     save_figure("residuals_vs_pred_bias.png")
     plt.show()
 
@@ -1120,6 +1127,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                             if n < min_count:
                                 continue
                                 
+                            resid_i = resid[m]
+                            mean_resid = float(np.mean(resid_i))
                             resid_i = resid[m]
                             mean_resid = float(np.mean(resid_i))
                             se_mean_resid = float(np.std(resid_i, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
@@ -1184,9 +1193,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.set_xticklabels(tbl['year'].astype(int), rotation=45)
                         
                         ax.set_xlabel("Sale Year")
-                        ax.set_ylabel("Mean Residual +/- SE")
+                        ax.set_ylabel("Mean Residual +/- Standard Error")
                         ax.set_title("Performance Stability by Sale Year", fontweight='bold')
                         plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
+                        plt.tight_layout(rect=[0, 0.1, 1, 0.95])
                         save_figure("residuals_by_sale_year.png")
                         plt.show()
 
@@ -1226,20 +1236,34 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                     })
                     # Filter - Lower threshold to see more classes as requested
                     # Matched to latent plot or simply lower (e.g. 20)
-                    bldg_stats = bldg_stats[bldg_stats['count'] > 20].sort_values('mean_resid')
-                    
-                    # Map codes to full names if possible
-                    code_map = {
-                        'A': '1-2 Family Houses', 'B': '2 Family Frame', 'C': 'Walk-up Apts', 
-                        'D': 'Elevator Apts', 'R': 'Condominiums', 'S': 'Resid/Comm Mix',
-                        'O': 'Office', 'K': 'Store/Loft', 'L': 'Loft', 'V': 'Vacant',
-                        'P': 'Public', '01': '1 Fam', '02': '2 Fam', '03': '3 Fam'
-                    }
-                    
+                    # Define standard order (NYC Consumer-facing)
+                    class_labels_ordered = [
+                        ('R', 'Condominiums'), ('D', 'Elevator Apartments'), ('C', 'Walk-up Apartments'),
+                        ('S', 'Mixed Residential'), ('A', '1-2 Family Houses'), ('B', '2 Family Houses'),
+                        ('K', 'Retail/Stores'), ('O', 'Office Buildings'), ('H', 'Hotels'), ('L', 'Lofts'),
+                        ('E', 'Warehouses'), ('F', 'Factories'), ('G', 'Garages'),
+                        ('I', 'Healthcare'), ('J', 'Entertainment'), ('M', 'Religious'),
+                        ('N', 'Nursing/Asylums'), ('P', 'Recreation (Indoor)'), ('Q', 'Recreation (Outdoor)'),
+                        ('T', 'Transportation'), ('W', 'Educational'), ('U', 'Utility'),
+                        ('V', 'Vacant Land'), ('Y', 'Government'), ('Z', 'Miscellaneous')
+                    ]
+                    code_map = {k: v for k, v in class_labels_ordered}
+                    ordered_codes = [k for k, v in class_labels_ordered]
+
                     # Create full labels
                     bldg_stats['label'] = bldg_stats.index.to_series().apply(
                         lambda c: code_map.get(c[0].upper(), c) if len(c) > 0 else "Unknown"
                     )
+                    
+                    # Sort by Fixed Order instead of Mean Residual
+                    # (Filter count > 20 first)
+                    bldg_stats = bldg_stats[bldg_stats['count'] > 20]
+                    
+                    # Re-sort to match class_labels_ordered
+                    # Create a categorical type for sorting
+                    bldg_stats['sort_key'] = bldg_stats.index.str[0].str.upper()
+                    bldg_stats['sort_rank'] = bldg_stats['sort_key'].apply(lambda x: ordered_codes.index(x) if x in ordered_codes else 999)
+                    bldg_stats = bldg_stats.sort_values('sort_rank')
                     
                     if not bldg_stats.empty:
                         print(f"\n[Eval] Residuals by Building Class (Top {len(bldg_stats)}):")
@@ -1255,7 +1279,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         # Set limits to [-1, 1] usually enough for mean, but std error bars might exceed
                         # User wants no abbreviation to "resid"
-                        ax.set_ylabel("Mean Residual +/- Std Dev")
+                        ax.set_ylabel("Mean Residual +/- Standard Deviation")
                         ax.set_title("Performance by Building Class", fontweight='bold')
                         
                         # Replace X-axis ticks with Vertical Text Labels
@@ -1283,7 +1307,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure margins for tall labels
-                        plt.tight_layout(rect=[0, 0.1, 1, 0.9]) # Extra bottom margin for vertical text
+                        plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
+                        
+                        # Ensure margins for tall labels (Significantly increased)
+                        plt.tight_layout(rect=[0, 0.25, 1, 0.95]) # Bottom 0.25 for vertical text
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
@@ -1308,7 +1335,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                                     fmt='o-', color='teal', capsize=5)
                         ax.axhline(0, color='black', linestyle='--')
                         ax.set_xlabel("Decade Built")
-                        ax.set_ylabel("Mean Residual ± SE")
+                        ax.set_ylabel("Mean Residual +/- Standard Error")
                         ax.set_title("Residual Stability by Year Built", fontweight='bold')
                         save_figure("residuals_by_year.png")
                         plt.show()
@@ -1326,7 +1353,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                            capsize=5, color='#e67e22', alpha=0.7)
                     ax.axhline(0, color='black', linewidth=1)
                     ax.set_xlabel("Building Class (Major)")
-                    ax.set_ylabel("Mean Residual ± SE")
+                    ax.set_ylabel("Mean Residual +/- Standard Error")
                     ax.set_title("Residual Stability by Building Class", fontweight='bold')
                     save_figure("residuals_by_bldg_class.png")
                     plt.show()
@@ -1667,10 +1694,10 @@ except AssertionError as e_gate:
     print(f"\n[Eval] SKIP Z Importance: {e_gate}")
 except Exception as e_imp:
     print(f"\n[Eval] Z Importance Analysis failed: {e_imp}")
-        for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
-            if hasattr(vae_model, attr):
-                print(f"[Eval]   Found relevant attribute: {attr}")
-    
+    for attr in ['y_decoder', 'decoder_y', 'price_head', 'predictor', 'predict_y_from_z']:
+        if hasattr(vae_model, attr):
+            print(f"[Eval]   Found relevant attribute: {attr}")
+
     # Use FIXED axis limits to focus on core distribution, letting outliers fall outside
     # This focuses on the core structure rather than stretching to include outliers
     x_lim_fixed = (-0.1, 0.4)  # z1 axis
