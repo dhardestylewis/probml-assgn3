@@ -1113,16 +1113,32 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         # 2b. Standardized QQ Plot (Normality of conditional noise)
         if HAVE_SCIPY:
             fig, ax = plt.subplots(figsize=(6, 6))
-            stats.probplot(std_resid, dist="norm", plot=ax)
-            ax.set_title("QQ Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold')
-            ax.set_ylabel("Ordered Standardized Residuals")
-            # Add identity line
-            ax.plot([-10, 10], [-10, 10], color='gray', linestyle='--', alpha=0.5)
-            ax.set_ylim(-10, 10) # FAIL-CLOSED RANGE
-            ax.set_xlim(-10, 10) # FAIL-CLOSED RANGE
+            # Manual QQ Plot for Style Consistency (Thinner/Transparent)
+            (osm, osr), (slope, intercept, r) = stats.probplot(std_resid, dist="norm", plot=None)
+            
+            # Scatter Points (matches Latent Scatter style: s=4, alpha=0.3, teal)
+            ax.scatter(osm, osr, s=4, alpha=0.3, color='#21918c', label='Residuals')
+            
+            # Identity Line (y=x) - Thin, Grey, Transparent
+            # The user complained about "thick/grey/opaque lines", so we make this subtle
+            min_val, max_val = min(osm.min(), osr.min()) - 0.5, max(osm.max(), osr.max()) + 0.5
+            ax.plot([min_val, max_val], [min_val, max_val], color='gray', linestyle='--', linewidth=1, alpha=0.5, label='Identity')
+            
+            ax.set_title("QQ Plot: Standardized Residuals vs Normal", fontsize=12, fontweight='bold', pad=8)
+            ax.set_xlabel("Theoretical Quantiles", fontsize=11)
+            ax.set_ylabel("Ordered Standardized Residuals", fontsize=11)
+            
+            ax.set_ylim(min_val, max_val)
+            ax.set_xlim(min_val, max_val)
+            
             ax.grid(False) # Strict removal
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
+            
+            # Check for extremeliers to adjust limits if needed, but identity line sets scale
+            # If we want strict -10, 10 as before:
+            # ax.set_ylim(-10, 10); ax.set_xlim(-10, 10)
+            
             plt.tight_layout()
             save_figure("residuals_standardized_qq.png")
             plt.show()
