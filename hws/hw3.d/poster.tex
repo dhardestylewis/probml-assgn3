@@ -17,6 +17,8 @@
 \setbeamercolor{headline}{bg=white,fg=ColumbiaBlue}
 \setbeamercolor{block title}{bg=ColumbiaBlue,fg=white}
 \setbeamercolor{block body}{bg=white,fg=black}
+\setbeamertemplate{itemize items}[square]
+\setbeamertemplate{enumerate items}[default]
 
 % \graphicspath{{images/}}
 
@@ -75,7 +77,7 @@
         
         \textbf{Challenges}:
         \begin{itemize}
-          \item \textbf{Heavy-tailed Distribution}: Prices exhibit extreme kurtosis of roughly 9.27, violating standard Gaussian assumptions.
+          \item \textbf{Heavy-tailed Distribution}: Prices exhibit significant excess kurtosis, violating standard Gaussian assumptions. % TODO: CONFIRM EXACT KURTOSIS (Prev: 9.27)
           \item \textbf{Missingness}: About 25\% of records lack price data.
         \end{itemize}
 
@@ -85,14 +87,14 @@
       \begin{block}{Methodology}
         We implement a \textbf{Semi-Supervised MIWAE} (SemiSupMIWAE) using a Student-$t$ Mixture Prior.
 
-        \textbf{1. Generative Model}
+        \textbf{Generative Model}
         \begin{itemize}
           \item \textbf{Latent Space}: $z_i \sim \sum_{k=1}^K \pi_k \, t_\nu(\mu_k, \Sigma_k)$.
           \item \textbf{Covariates}: $x_i \mid z_i \sim \mathcal{N}\big(\mu_x(z_i), \operatorname{diag}(\sigma^2_x(z_i))\big)$.
           \item \textbf{Price Head}: $y_i \mid z_i \sim \mathcal{N}\big(\mu_y(z_i), \sigma^2_y(z_i)\big)$.
         \end{itemize}
 
-        \textbf{2. Inference}
+        \textbf{Inference}
         We maximize the importance-weighted lower bound, the ELBO:
         \[
         \mathcal{L} \approx \mathbb{E}_{q_\phi} \left[ \log \frac{1}{K_{\text{IW}}} \sum_{k=1}^{K_{\text{IW}}} \frac{p_\theta(x_i, y_i \mid z_i^{(k)}) \, p(z_i^{(k)})}{q_\phi(z_i^{(k)} \mid x_i, y_i)} \right]
@@ -133,7 +135,7 @@
       \end{block}
 
       \begin{block}{Residual Analysis}
-        Spatial plotting reveals bias, while histogram confirms heavy tails (Kurtosis $\approx 9.27$).
+        Spatial plotting reveals bias, while histogram confirms heavy tails (Significant Excess Kurtosis). % TODO: ADD EXACT VALUE IF VERIFIED
         \begin{figure}
           \centering
           \includegraphics[width=0.48\textwidth]{images/residuals_spatial_map.png}
@@ -152,7 +154,7 @@
       \begin{block}{Latent Space Analysis}
         The 3D latent space, with $K=3$, captures interpretable structure.
 
-        \textbf{1. Value Continuum}
+        \textbf{Value Continuum}
         Gradient $z_0/z_1$ suggests a "Value/Size" factor.
         \begin{figure}
           \centering
@@ -160,7 +162,7 @@
           \caption{Latents colored by Price Decile.}
         \end{figure}
 
-        \textbf{2. Structural Clustering}
+        \textbf{Structural Clustering}
         Clusters separate building classes such as Small vs Mixed-Use.
         \begin{figure}
           \centering
@@ -171,7 +173,7 @@
 
       \begin{block}{Discussion \& Future Work}
         \begin{itemize}
-          \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails ($R^2 \approx 0.27$ on residuals).
+          \item \textbf{Findings}: Latents organize properties by value type, but Gaussian head misses tails (residual analysis). % TODO: VERIFY R^2 (Prev: 0.27)
             \begin{center}
               \includegraphics[width=0.6\textwidth]{images/residuals_qq_simple.png}
             \end{center}
