@@ -1367,7 +1367,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax.set_xticks(range(len(bldg_stats)))
                         ax.set_xticklabels(full_labels, rotation=90)
                         
-                        ax.legend(loc='upper right', framealpha=0.9)
+                        ax.tick_params(axis='both', which='major', labelsize=10)
+                        
+                        ax.legend(loc='upper right', framealpha=0.9, fontsize=10)
                         ax.spines['top'].set_visible(False)
                         ax.spines['right'].set_visible(False)
                         ax.grid(False)
@@ -1399,10 +1401,12 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         fig, ax = plt.subplots(figsize=(10, 5))
                         ax.errorbar(decade_stats.index, decade_stats['mean'], 
                                     yerr=decade_stats['std'] / np.sqrt(decade_stats['count']),
-                                    fmt='o-', color='teal', capsize=5)
-                        ax.axhline(0, color='black', linestyle='--')
-                        ax.set_xlabel("Decade Built")
-                        ax.set_ylabel("Mean Residual +/- Standard Error")
+                                    fmt='o-', color='teal', capsize=5, label='Mean Residual')
+                        ax.axhline(0, color='black', linestyle='--', label='Zero Reference')
+                        ax.set_xlabel("Decade Built", fontsize=11)
+                        ax.set_ylabel("Mean Residual +/- Standard Error", fontsize=11)
+                        ax.tick_params(axis='both', which='major', labelsize=10)
+                        ax.legend(loc='upper right', framealpha=0.9, fontsize=10)
                         ax.set_title("Residual Stability by Year Built", fontweight='bold', pad=8)
                         ax.spines['top'].set_visible(False)
                         ax.spines['right'].set_visible(False)
