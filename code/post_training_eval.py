@@ -1943,15 +1943,15 @@ if len(valid_log_price) > 100:
             kde = gaussian_kde(xy)
             dens = kde(xy) # Per-point density
             
-            # Map density to alpha [0.05, 1.0]
+            # Map density to alpha [0.20, 1.0] (Linear with Floor)
             # Clip outliers to stabilize contrast
             q_lo, q_hi = np.quantile(dens, [0.05, 0.95])
             dens_clipped = np.clip(dens, q_lo, q_hi)
             dens_norm = (dens_clipped - q_lo) / (q_hi - q_lo + 1e-12)
             
-            # Gamma > 1 emphasizes dense cores, < 1 spreads opacity
-            gamma = 1.5
-            alpha_per_point = 0.05 + 0.95 * (dens_norm ** gamma)
+            # Linear map with 0.20 floor (Distinguishable Majority)
+            # Adjusting entire spectrum uniformly as requested
+            alpha_per_point = 0.20 + 0.80 * dens_norm
             
             # Create RGBA manually
             from matplotlib import cm
@@ -1960,7 +1960,7 @@ if len(valid_log_price) > 100:
             colors_rgba = cmap(norm_scatter(price_shuffled))
             colors_rgba[:, 3] = alpha_per_point
             
-            print(f"[Eval] Scatter Transparency: KDE Alpha Range [{alpha_per_point.min():.3f} - {alpha_per_point.max():.3f}]")
+            print(f"[Eval] Scatter Transparency: Linear-KDE Alpha Range [{alpha_per_point.min():.3f} - {alpha_per_point.max():.3f}]")
             
             sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
                             c=colors_rgba, s=8,
@@ -2080,13 +2080,15 @@ if len(valid_log_price) > 100:
         min_c, max_c = bin_counts.min(), bin_counts.max()
         
         if max_c > min_c:
-            # Scale 0.1 to 1.0 using SQUARED mapping to emphasize high density
+            # Scale 0.2 to 1.0 using LINEAR mapping (shifted)
+            # Uniformly pushing min visibility to 0.2
             norm_c = (bin_counts - min_c) / (max_c - min_c + 1e-12)
-            alpha_vals = 0.05 + 0.95 * (norm_c ** 2)
+            
+            alpha_vals = 0.20 + 0.80 * norm_c
         else:
             alpha_vals = np.ones_like(bin_counts)
         
-        print(f"[Eval] Hexbin Transparency: Squared Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
+        print(f"[Eval] Hexbin Transparency: Linear Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
 
         # CRITICAL FIX: Detach collection from ScalarMappable to prevent overwrite
         hb.update_scalarmappable() # Force initial color generation
