@@ -746,9 +746,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         save_figure("residuals_hist_normal.png")
         plt.show()
     
-    # --- VERSION 3: Full with Student-t overlays ---
+    # --- VERSION 3: Histogram with best-fit curve only (no Student-t references) ---
     
-    # --- 6a. Histogram with Student-t overlays ---
+    # --- 6a. Histogram with best-fit overlay ---
     fig, ax = plt.subplots(figsize=(8, 5))
     
     # Main histogram - prominent color
@@ -756,29 +756,10 @@ if y_true_log_eval is not None and mu_log_eval is not None:
             edgecolor='white', linewidth=0.3, label='Observed residuals', zorder=3)
     
     if HAVE_SCIPY:
-        # Use already-fitted parameters from above (df_fit, loc_fit, scale_fit)
-        
-        # Student-t references: use MULTIPLICATIVE ratios around fitted df
-        # E.g., if fitted df=0.7, show df=0.35 (heavier, ν/2) and df=1.4 (lighter, ν*2)
-        # Reference lines: wider range to show contrast (10x factor)
-        # Student-t is valid for any df > 0
-        df_lower = max(0.1, df_fit / 10.0)
-        df_upper = df_fit * 10.0
-        
-        # Reference lines: same gray color, different dash patterns
-        # Lower ν (heavier tails) = sparser dashes, higher ν (lighter) = denser dashes
-        for nu_ref, style in [(df_lower, (0, (5, 10))),   # sparse dash = heavier
-                              (df_upper, (0, (3, 3)))]:   # dense dash = lighter
-            # Use same location and scale as the fit to compare shape (tail) only
-            # Matching variance is undefined for nu <= 2
-            pdf_t_ref = stats.t.pdf(x_grid, df=nu_ref, loc=loc_fit, scale=scale_fit)
-            ax.plot(x_grid, pdf_t_ref, color='gray', linestyle=style, linewidth=1.2, 
-                    alpha=0.7, label=f'$\\nu$={nu_ref:.1f}', zorder=1)
-        
-        # Best-fit Student-t: same gray color but SOLID line (not dashed)
+        # Plot only the best-fit Student-t curve (no reference lines)
         pdf_t_best = stats.t.pdf(x_grid, df=df_fit, loc=loc_fit, scale=scale_fit)
         ax.plot(x_grid, pdf_t_best, color='gray', linestyle='-', linewidth=2, 
-                alpha=0.9, label=f'Student-t ($\\nu$={df_fit:.1f})', zorder=2)
+                alpha=0.9, label=f'Best Fit (Student-t, $\\nu$={df_fit:.1f})', zorder=2)
 
     ax.set_xlabel("Residual", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
@@ -1110,24 +1091,49 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.scatter(mu_log_eval, resid_log, alpha=0.05, s=2, color='#34495e')
     
-    # Binned mean residual - ALIGN WITH TICKS
+    # LOESS smoothing for continuous fit instead of binned means
     curr_ticks, curr_labels = get_log_price_ticks(mu_log_eval.min(), mu_log_eval.max())
     
-    if len(curr_ticks) > 2:
-        bins = np.array(curr_ticks)
-        bin_idx = digitize_safe(mu_log_eval, bins)
+    try:
+        from statsmodels.nonparametric.smoothers_lowess import lowess
+        # LOESS for mean trend
+        sorted_idx = np.argsort(mu_log_eval)
+        x_sorted = mu_log_eval[sorted_idx]
+        y_sorted = resid_log[sorted_idx]
         
-        bin_res_means = []
-        bin_centers = []
+        # Fit LOESS (frac=0.2 for reasonable smoothing)
+        loess_result = lowess(y_sorted, x_sorted, frac=0.2, return_sorted=True)
+        x_smooth = loess_result[:, 0]
+        y_smooth = loess_result[:, 1]
         
-        for i in range(1, len(bins)):
-            mask_bin = bin_idx == i
-            if mask_bin.sum() > 5:
-                bin_res_means.append(resid_log[mask_bin].mean())
-                bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+        # Compute rolling std for ±1σ band
+        # Use a window-based approach for local std
+        window_size = max(100, len(y_sorted) // 20)
+        y_std_smooth = pd.Series(y_sorted).rolling(window=window_size, center=True, min_periods=50).std().values
+        # Interpolate to same x values as LOESS
+        y_std_interp = np.interp(x_smooth, x_sorted, np.nan_to_num(y_std_smooth, nan=0.5))
         
-        if len(bin_centers) > 0:
-            ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean Residual')
+        # Plot LOESS line
+        ax.plot(x_smooth, y_smooth, 'r-', linewidth=2, label='LOESS Fit')
+        
+        # Plot ±1σ shaded band
+        ax.fill_between(x_smooth, y_smooth - y_std_interp, y_smooth + y_std_interp,
+                        color='red', alpha=0.15, label='±1 Std Dev')
+    except ImportError:
+        print("[Eval] statsmodels not available, falling back to binned mean")
+        # Fallback to binned approach if LOESS unavailable
+        if len(curr_ticks) > 2:
+            bins = np.array(curr_ticks)
+            bin_idx = digitize_safe(mu_log_eval, bins)
+            bin_res_means = []
+            bin_centers = []
+            for i in range(1, len(bins)):
+                mask_bin = bin_idx == i
+                if mask_bin.sum() > 5:
+                    bin_res_means.append(resid_log[mask_bin].mean())
+                    bin_centers.append(0.5 * (bins[i-1] + bins[i]))
+            if len(bin_centers) > 0:
+                ax.plot(bin_centers, bin_res_means, 'r-o', linewidth=2, label='Binned Mean')
 
     ax.axhline(0, color='black', linestyle='--')
     
@@ -1140,7 +1146,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.axvline(t, color='gray', linestyle=':', alpha=0.3)
     
     ax.set_xlabel("Predicted Price")
-    ax.set_ylabel("Mean Residual")
+    ax.set_ylabel("Residual")  # Raw residuals are plotted
     ax.set_title("Conditional Bias", fontweight='bold')
     
     # Enforce X-limit cutoff
@@ -1149,7 +1155,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     # Range limits [-1, 1] for Conditional Bias
     ax.set_ylim(-1, 1)
     
-    plt.figtext(0.5, 0.01, "Values in Log Space. Red Line: Binned Mean.", ha="center", fontsize=9, fontstyle='italic')
+    plt.figtext(0.5, 0.01, "Values in Log Space. Red: LOESS fit ±1σ.", ha="center", fontsize=9, fontstyle='italic')
 
     ax.legend()
     ax.grid(False) # Strict Grid Removal

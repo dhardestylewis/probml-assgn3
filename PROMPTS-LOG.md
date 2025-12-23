@@ -651,6 +651,12 @@ At the end of each substantive answer, include a short meta-calibration block wi
 >
 > residuals vs predictions from -2.5 to 2.5 for both
 
-### 157. [2025-12-22 20:51] Importance Proportion Footnote
+### 158. [2025-12-22 20:56] Binned Mean vs Continuous Fit
 **User Prompt:**
-> why arent we plotting the two most important latents with a footnote indicating some kind of proportion importance if possible to compute?
+> is the binned mean residual line providing any value beyond some other line of fit that can be put across it? anything more natural? should that binned mean residual instead be +/- std? even if so is there not a more continuous way to express that +/- 1 std dev band rather than binning?
+>
+> for that plot the y axis is labeled "mean residual" yet are these mean residuals or just raw residuals being plotted?
+>
+### 159. [2025-12-22 20:57] Remove Uniform Scale Note
+**User Prompt:**
+> you dont need to note "(Uniform Scale)" in the title that is a footnote if not directly obvious from the axes values themselves
