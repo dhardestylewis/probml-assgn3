@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 16:43
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 16:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -315,32 +315,51 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 )
 \Hy@SectionHShift=\skip58
 )
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fancyhdr\fancyhdr.sty
+Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
+
+\f@nch@headwidth=\skip59
+\f@nch@offset@elh=\skip60
+\f@nch@offset@erh=\skip61
+\f@nch@offset@olh=\skip62
+\f@nch@offset@orh=\skip63
+\f@nch@offset@elf=\skip64
+\f@nch@offset@erf=\skip65
+\f@nch@offset@olf=\skip66
+\f@nch@offset@orf=\skip67
+\f@nch@height=\skip68
+\f@nch@footalignment=\skip69
+\f@nch@widthL=\skip70
+\f@nch@widthC=\skip71
+\f@nch@widthR=\skip72
+\@temptokenb=\toks31
+)
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdfte
 x.def
 File: l3backend-pdftex.def 2025-06-09 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count316
-)
-No file STCS6701_FinalProject_Report_Lewis.aux.
+) (STCS6701_FinalProject_Report_Lewis.aux)
 \openout1 = `STCS6701_FinalProject_Report_Lewis.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 13.
-LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 25.
+LaTeX Font Info:    ... okay on input line 25.
+
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
 *geometry* verbose mode - [ preamble ] result:
@@ -383,12 +402,12 @@ LaTeX Font Info:    ... okay on input line 13.
 \scratchbox=\box56
 \nofMPsegments=\count318
 \nofMParguments=\count319
-\everyMPshowfont=\toks31
+\everyMPshowfont=\toks32
 \MPscratchCnt=\count320
 \MPscratchDim=\dimen187
 \MPnumerator=\count321
 \makeMPintoPDFobject=\count322
-\everyMPtoPDFconversion=\toks32
+\everyMPtoPDFconversion=\toks33
 )
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-bas
 e.sty
@@ -407,115 +426,108 @@ File: color.cfg 2016/01/02 v1.6 sample color configuration
 Package color Info: Driver file: pdftex.def on input line 149.
 
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx))
-Package hyperref Info: Link coloring ON on input line 13.
+Package hyperref Info: Link coloring ON on input line 25.
+
+(STCS6701_FinalProject_Report_Lewis.out)
+(STCS6701_FinalProject_Report_Lewis.out)
 \@outlinefile=\write3
 \openout3 = `STCS6701_FinalProject_Report_Lewis.out'.
 
-LaTeX Font Info:    Trying to load font information for U+msa on input line 36.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 41.
 
 
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 36.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 41.
 
 
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 
-[1
+[1{C:/Users/dhl/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}
 
-{C:/Users/dhl/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}]
-
-LaTeX Warning: Reference `fig:graphical-model-miwae' on page 2 undefined on inp
-ut line 85.
-
-<images/miwae_graphical_model.png, id=17, 644.4075pt x 409.53pt>
+]
+<images/miwae_graphical_model.png, id=19, 644.4075pt x 409.53pt>
 File: images/miwae_graphical_model.png Graphic file (type png)
 <use images/miwae_graphical_model.png>
-Package pdftex.def Info: images/miwae_graphical_model.png  used on input line 8
-9.
+Package pdftex.def Info: images/miwae_graphical_model.png  used on input line 9
+4.
 (pdftex.def)             Requested size: 375.80544pt x 238.83983pt.
 
 
 [2]
-
-LaTeX Warning: Reference `fig:convergence-loss-miwae' on page 3 undefined on in
-put line 120.
-
-
-
-[3 <./images/miwae_graphical_model.png>]
-<images/convergence_loss.png, id=45, 503.481pt x 347.8596pt>
+<images/convergence_loss.png, id=38, 503.481pt x 347.8596pt>
 File: images/convergence_loss.png Graphic file (type png)
 <use images/convergence_loss.png>
-Package pdftex.def Info: images/convergence_loss.png  used on input line 124.
+Package pdftex.def Info: images/convergence_loss.png  used on input line 129.
 (pdftex.def)             Requested size: 375.80544pt x 259.65201pt.
 
 
+[3 <./images/miwae_graphical_model.png>]
+
 [4 <./images/convergence_loss.png>]
-
-LaTeX Warning: Reference `tab:global-metrics' on page 5 undefined on input line
- 160.
-
-
-LaTeX Warning: Reference `fig:residuals-log' on page 5 undefined on input line 
-185.
-
-<images/residuals_hist_references.png, id=58, 568.0422pt x 346.896pt>
+<images/residuals_hist_references.png, id=61, 568.0422pt x 346.896pt>
 File: images/residuals_hist_references.png Graphic file (type png)
 <use images/residuals_hist_references.png>
 Package pdftex.def Info: images/residuals_hist_references.png  used on input li
-ne 189.
+ne 194.
 (pdftex.def)             Requested size: 230.18253pt x 140.5715pt.
-<images/miwae_residuals_qq.png, id=59, 335.3328pt x 340.3917pt>
+<images/miwae_residuals_qq.png, id=62, 335.3328pt x 340.3917pt>
 File: images/miwae_residuals_qq.png Graphic file (type png)
 <use images/miwae_residuals_qq.png>
-Package pdftex.def Info: images/miwae_residuals_qq.png  used on input line 190.
+Package pdftex.def Info: images/miwae_residuals_qq.png  used on input line 195.
 
 (pdftex.def)             Requested size: 230.18253pt x 233.65512pt.
 
 
 [5]
 
-LaTeX Warning: Reference `fig:latent-price' on page 6 undefined on input line 2
-03.
+LaTeX Warning: Reference `fig:spatial-residuals' on page 6 undefined on input l
+ine 208.
 
-<images/latent_space_price.png, id=68, 487.0998pt x 412.4208pt>
-File: images/latent_space_price.png Graphic file (type png)
-<use images/latent_space_price.png>
-Package pdftex.def Info: images/latent_space_price.png  used on input line 207.
+<images/residuals_spatial_map.png, id=72, 294.3798pt x 474.573pt>
+File: images/residuals_spatial_map.png Graphic file (type png)
+<use images/residuals_spatial_map.png>
+Package pdftex.def Info: images/residuals_spatial_map.png  used on input line 2
+12.
+(pdftex.def)             Requested size: 328.82707pt x 530.10606pt.
 
-(pdftex.def)             Requested size: 375.80544pt x 318.188pt.
+LaTeX Warning: Reference `fig:calibration' on page 6 undefined on input line 21
+9.
 
-LaTeX Warning: Reference `fig:latent-building-class' on page 6 undefined on inp
-ut line 214.
-
-<images/latent_space_bldg.png, id=69, 478.9092pt x 402.7848pt>
-File: images/latent_space_bldg.png Graphic file (type png)
-<use images/latent_space_bldg.png>
-Package pdftex.def Info: images/latent_space_bldg.png  used on input line 218.
-(pdftex.def)             Requested size: 375.80544pt x 316.06999pt.
+<images/coverage_by_sale_year.png, id=73, 713.064pt x 352.6776pt>
+File: images/coverage_by_sale_year.png Graphic file (type png)
+<use images/coverage_by_sale_year.png>
+Package pdftex.def Info: images/coverage_by_sale_year.png  used on input line 2
+23.
+(pdftex.def)             Requested size: 375.80544pt x 185.87424pt.
 
 
 [6 <./images/residuals_hist_references.png> <./images/miwae_residuals_qq.png>]
+<images/latent_space_price.png, id=84, 487.0998pt x 412.4208pt>
+File: images/latent_space_price.png Graphic file (type png)
+<use images/latent_space_price.png>
+Package pdftex.def Info: images/latent_space_price.png  used on input line 234.
 
-[7 <./images/latent_space_price.png>]
-
-[8 <./images/latent_space_bldg.png>]
-Underfull \hbox (badness 10000) in paragraph at lines 246--247
-[]\OT1/cmr/m/n/10.95 NYC De-part-ment of City Plan-ning. Map-PLUTO: Ex-ten-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 246--247
-\OT1/cmr/m/n/10.95 sive Land Use and Ge-o-graphic Data at the Tax Lot Level.
- []
-
+(pdftex.def)             Requested size: 375.80544pt x 318.188pt.
+<images/latent_space_bldg.png, id=86, 478.9092pt x 402.7848pt>
+File: images/latent_space_bldg.png Graphic file (type png)
+<use images/latent_space_bldg.png>
+Package pdftex.def Info: images/latent_space_bldg.png  used on input line 245.
+(pdftex.def)             Requested size: 375.80544pt x 316.06999pt.
 
 
-[9] (STCS6701_FinalProject_Report_Lewis.aux)
+[7]
+
+[8]
+
+[9 <./images/residuals_spatial_map.png>]
+
+[10 <./images/coverage_by_sale_year.png> <./images/latent_space_price.png>]
+
+[11 <./images/latent_space_bldg.png>] (STCS6701_FinalProject_Report_Lewis.aux)
  ***********
 LaTeX2e <2025-06-01> patch level 1
 L3 programming layer <2025-09-02>
@@ -527,25 +539,18 @@ LaTeX Warning: There were undefined references.
 
 LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
-
-Package rerunfilecheck Warning: File `STCS6701_FinalProject_Report_Lewis.out' h
-as changed.
-(rerunfilecheck)                Rerun to get outlines right
-(rerunfilecheck)                or use package `bookmark'.
-
-Package rerunfilecheck Info: Checksums for `STCS6701_FinalProject_Report_Lewis.
-out':
-(rerunfilecheck)             Before: <no file>
-(rerunfilecheck)             After:  D41D8CD98F00B204E9800998ECF8427E;0.
+Package rerunfilecheck Info: File `STCS6701_FinalProject_Report_Lewis.out' has 
+not changed.
+(rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 10765 strings out of 468081
- 166283 string characters out of 5426756
- 584416 words of memory out of 5000000
- 39268 multiletter control sequences out of 15000+600000
+ 11154 strings out of 468081
+ 173972 string characters out of 5426756
+ 593455 words of memory out of 5000000
+ 39634 multiletter control sequences out of 15000+600000
  635684 words of font info for 70 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,9n,79p,737b,602s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,12n,79p,737b,556s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\dhl\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm10
 95.pk><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/c
 m/cmbx10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
@@ -555,19 +560,18 @@ pe1/public/amsfonts/cm/cmmi10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/f
 onts/type1/public/amsfonts/cm/cmmi6.pfb><C:/Users/dhl/AppData/Local/Programs/Mi
 KTeX/fonts/type1/public/amsfonts/cm/cmmi8.pfb><C:/Users/dhl/AppData/Local/Progr
 ams/MiKTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/Users/dhl/AppData/Local
-/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/dhl/AppData
-/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/dhl/Ap
-pData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/d
-hl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/
-Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pf
-b><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cm
-ti10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfont
-s/cm/cmtt10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/
-amsfonts/symbols/msbm10.pfb>
-Output written on STCS6701_FinalProject_Report_Lewis.pdf (9 pages, 1296432 byte
-s).
+/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/dhl/AppData/
+Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/dhl/App
+Data/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/
+dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pfb><C:/
+Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.p
+fb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
+mtt10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfon
+ts/symbols/msbm10.pfb>
+Output written on STCS6701_FinalProject_Report_Lewis.pdf (11 pages, 1767533 byt
+es).
 PDF statistics:
- 185 PDF objects out of 1000 (max. 8388607)
- 46 named destinations out of 1000 (max. 500000)
- 31 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 215 PDF objects out of 1000 (max. 8388607)
+ 59 named destinations out of 1000 (max. 500000)
+ 41 words of extra memory for PDF output out of 10000 (max. 10000000)
 

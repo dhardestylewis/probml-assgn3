@@ -6,28 +6,33 @@
 \usepackage{graphicx}
 \usepackage[hyphens]{url}
 \usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+\usepackage{fancyhdr}
 \graphicspath{{images/}}
 \geometry{margin=1in}
 \sloppy
 
+% === COURSE HEADER/FOOTER (REMOVE FOR CONFERENCE SUBMISSION) ===
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small STCS 6701: Probabilistic Machine Learning}
+\fancyhead[R]{\small Prof.\ David Blei, Columbia University}
+\fancyfoot[C]{\thepage}
+\fancyfoot[R]{\small Due: Dec 24, 2025 at 1:00 pm ET}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+% === END COURSE HEADER/FOOTER ===
+
 \begin{document}
 
 \begin{center}
-{\Large STCS 6701: Probabilistic Machine Learning\\
-Prof.\ David Blei\\
-Final Project}
-
-\vspace{0.5em}
 {\LARGE \textbf{Semi-Supervised Latent Variable Model\\for NYC Property Valuation}}
 
 \vspace{1em}
 
 Daniel Hardesty Lewis\\
 \href{mailto:dl3645@columbia.edu}{\texttt{dl3645@columbia.edu}}
-
-\vspace{0.5em}
-Due: Dec 24, 2025 at 1:00 pm ET
 \end{center}
+
 
 \section*{Abstract}
 
@@ -198,6 +203,28 @@ To contextualize the MIWAE performance, I also fit tree-based regressors on the 
 
 To probe whether the residuals still contain systematic structure, I regress the residuals on both the original features $x_i$ and the latent means $z_i$. On a held-out set, a flexible regressor achieves $R^2 \approx 0.50$ for $\text{residual} \mid X$ and $R^2 \approx 0.27$ for $\text{residual} \mid z$, indicating that the model fails to capture approximately 50\% of the explainable variation in log-price relative to what is available in the raw covariates. This residual structure likely reflects a combination of model misspecification (Gaussian likelihood in log space) and limited capacity in the decoder and prediction network.
 
+\subsubsection*{Spatial residual patterns}
+
+To assess whether the model exhibits systematic geographic bias, I map residuals across NYC (Figure~\ref{fig:spatial-residuals}). The spatial plot reveals localized clusters of over- and under-prediction, suggesting that neighborhood-level factors not fully captured by the covariates influence prices systematically.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.7\textwidth]{residuals_spatial_map.png}
+    \caption{Spatial distribution of residuals across NYC. Red indicates overprediction, blue indicates underprediction. Visible clustering suggests spatial dependencies not captured by the model.}
+    \label{fig:spatial-residuals}
+\end{figure}
+
+\subsubsection*{Uncertainty calibration}
+
+I assess the calibration of the model's predictive intervals across sale years (Figure~\ref{fig:calibration}). The 50\%, 80\%, and 95\% prediction intervals show systematic undercoverage (empirical coverage below nominal), indicating that the model underestimates uncertainty---a common issue with Gaussian likelihood assumptions on heavy-tailed data [6].
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.8\textwidth]{coverage_by_sale_year.png}
+    \caption{Empirical coverage of prediction intervals by sale year. Dashed lines show nominal coverage (50\%, 80\%, 95\%). Systematic undercoverage indicates overconfident uncertainty estimates.}
+    \label{fig:calibration}
+\end{figure}
+
 \subsubsection*{Latent structure and qualitative visualization}
 
 Finally, I inspect the learned latent variables. For properties with observed $y_i$, I compute the posterior mean $\mu_z(x_i, y_i)$ and plot the top two dimensions by variance contribution, $(z_3, z_1)$, colored by sale-price deciles (Figure~\ref{fig:latent-price}).
@@ -205,7 +232,7 @@ Finally, I inspect the learned latent variables. For properties with observed $y
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.8\textwidth]{latent_space_price.png}
-    \caption{Latent space visualization: posterior means $(z_0, z_1)$ colored by sale-price deciles. A smooth gradient along one axis indicates that one latent dimension captures a value/size continuum.}
+    \caption{Latent space visualization: posterior means $(z_3, z_1)$ colored by sale-price deciles ($n \approx 90{,}000$ properties). Dimensions selected by variance: $z_3$ explains 50\%, $z_1$ explains 30\%. A smooth gradient along one axis indicates that one latent dimension captures a value/size continuum.}
     \label{fig:latent-price}
 \end{figure}
 
@@ -216,7 +243,7 @@ When building-class information is available (e.g., small 1--4 family homes, lar
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.8\textwidth]{latent_space_bldg.png}
-    \caption{Latent space visualization: posterior means $(z_0, z_1)$ colored by building class (e.g., 1--4 family, large elevator, mixed-use). Distinct clusters suggest that the latent factors encode property-type structure.}
+    \caption{Latent space visualization: posterior means $(z_3, z_1)$ colored by building class ($\sim$17 aggregated categories). Building classes form identifiable striations, indicating that the latent factors encode property-type structure.}
     \label{fig:latent-building-class}
 \end{figure}
 
@@ -242,11 +269,18 @@ Beyond the immediate plans, future work could involve incorporating spatial depe
 \section*{References}
 
 \begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=0pt]
+    \item Kingma, D. P. and Welling, M. (2014). Auto-Encoding Variational Bayes. \textit{Proceedings of the 2nd International Conference on Learning Representations (ICLR)}.
+    \item Burda, Y., Grosse, R., and Salakhutdinov, R. (2016). Importance Weighted Autoencoders. \textit{Proceedings of the 4th International Conference on Learning Representations (ICLR)}.
     \item Mattei, P.-A. and Frellsen, J. (2019). MIWAE: Deep Generative Modelling and Imputation of Incomplete Data Sets. \textit{Proceedings of the 36th International Conference on Machine Learning (ICML)}, PMLR 97:4413--4423.
-    \item NYC Department of City Planning. MapPLUTO: Extensive Land Use and Geographic Data at the Tax Lot Level. \texttt{https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page}
-    \item NYC Department of Finance. ACRIS: Automated City Register Information System. \texttt{https://www.nyc.gov/site/finance/taxes/acris.page}
+    \item Kingma, D. P., Rezende, D. J., Mohamed, S., and Welling, M. (2014). Semi-Supervised Learning with Deep Generative Models. \textit{Advances in Neural Information Processing Systems 27 (NeurIPS)}.
+    \item Lange, K. L., Little, R. J. A., and Taylor, J. M. G. (1989). Robust Statistical Modeling Using the $t$ Distribution. \textit{Journal of the American Statistical Association}, 84(408):881--896.
+    \item Gneiting, T., Balabdaoui, F., and Raftery, A. E. (2007). Probabilistic Forecasts, Calibration and Sharpness. \textit{Journal of the Royal Statistical Society: Series B}, 69(2):243--268.
+    \item Little, R. J. A. and Rubin, D. B. (2019). \textit{Statistical Analysis with Missing Data}. 3rd ed. Wiley.
+    \item Rosen, S. (1974). Hedonic Prices and Implicit Markets. \textit{Journal of Political Economy}, 82(1):34--55.
+    \item Berry, B. J. L. and Bednarz, R. S. (1975). A Hedonic Model of Prices and Assessments for Single-Family Homes. \textit{Land Economics}, 51(1):21--40.
     \item International Association of Assessing Officers (IAAO). (2013). \textit{Standard on Ratio Studies}. Kansas City, MO.
-    \item Berry, B. J. L. and Bednarz, R. S. (1975). A Hedonic Model of Prices and Assessments for Single-Family Homes. \textit{Land Economics}, 51(1), 21--40.
+    \item NYC Department of City Planning. MapPLUTO: Extensive Land Use and Geographic Data at the Tax Lot Level. \url{https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page}
+    \item NYC Department of Finance. ACRIS: Automated City Register Information System. \url{https://www.nyc.gov/site/finance/taxes/acris.page}
 \end{enumerate}
 
 \end{document}
