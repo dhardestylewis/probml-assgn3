@@ -1347,15 +1347,15 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         
                         # "vertical axis tick labels" -> yes, rotated ticks.
                         ax.set_xticks(range(len(bldg_stats)))
-                        ax.set_xticklabels(full_labels, rotation=90, fontsize=10)
+                        ax.set_xticklabels(full_labels, rotation=90)
                         
-                        ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
+                        ax.legend(loc='upper right', framealpha=0.9)
                         
-                        plt.figtext(0.5, 0.01, "Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
+                        plt.figtext(0.5, 0.01, f"Values in Log Space. Price >= $100k.", ha="center", fontsize=9, fontstyle='italic')
                         
                         # Ensure plot area is at least 50% of figure height
-                        # With height=8, bottom=0.20=1.6in, top=0.95=7.6in -> plot=6in=75%
-                        plt.tight_layout(rect=[0, 0.20, 1, 0.95])
+                        # With height=8, bottom=0.15 matches Residuals plot
+                        plt.tight_layout(rect=[0, 0.15, 1, 0.95])
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
