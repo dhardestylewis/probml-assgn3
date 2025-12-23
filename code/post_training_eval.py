@@ -1596,9 +1596,16 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   ax.set_xlabel("")
                   ax.set_ylabel("")
                   
-                  # Try to enforce aspect ratio if we assume lat/lon
+                  # Correct Aspect Ratio for Latitude (Mercator-like correction)
                   if is_geo:
-                      ax.set_aspect('equal', adjustable='box')
+                       try:
+                           # Dynamic aspect ratio based on mean latitude
+                           mean_lat = valid_geo[y_col].mean()
+                           aspect_ratio = 1.0 / np.cos(np.radians(mean_lat))
+                           ax.set_aspect(aspect_ratio, adjustable='box')
+                           print(f"[Eval] Spatial Map: Applied aspect ratio {aspect_ratio:.2f} (Lat {mean_lat:.1f})")
+                       except Exception:
+                           ax.set_aspect('equal', adjustable='box')
 
                   # Add Basemap if possible
                   try:
@@ -1611,13 +1618,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                       else:
                            # Data is Projected (likely local or 3857)
                            # If it's NYC data (EPSG:2263), we should tell contextily
-                           # Try 2263 if it looks like NYC coordinates (approx range checks?) or just try default
-                           # For now, let's assume if it's projected it might match basemap or we assume EPSG:2263 (LI) for this dataset usage
-                           # Safest fallback: try EPSG:2263 since user likely uses that for NYC data
                            cx.add_basemap(ax, crs='EPSG:2263', source=cx.providers.CartoDB.Positron)
                   except (ImportError, Exception) as e_map:
-                      # This often fails if no internet, but user specifically asked "no basemap?" so we should clarify failure.
-                      print(f"[Eval] Could not add basemap (contextily): {e_map}. Check internet/CRS.")
+                      # Suggest installation
+                      print(f"[Eval] Could not add basemap (contextily): {e_map}.")
+                      print("[Eval] To enable basemap: pip install contextily")
                   
                   save_figure("residuals_spatial_map.png")
                   plt.show()
@@ -1900,16 +1905,21 @@ def add_density_contours(x, y, ax, levels=5, color='white', alpha=0.6):
         print(f"[Eval] Contour error: {e}")
 
 # --- 7a-ORIG. ORIGINAL Simple latent scatter by price deciles (for comparison) ---
-log_price_all = df_pred[log_y_col].astype(float).values
-mask_finite_price = np.isfinite(log_price_all)
-
-if mask_finite_price.sum() > 0:
-    # Compute decile edges on finite values
-    decile_edges = np.quantile(log_price_all[mask_finite_price], np.linspace(0, 1, 11))
+# --- 7a-ORIG. ORIGINAL Simple latent scatter by price deciles (for comparison) ---
+# Enforce mask_common (Price >= 100k) for consistency
+if mask_common.sum() > 0:
+    # Compute decile edges on the COMMON subset (consistent population)
+    price_subset_log = log_price_all[mask_common]
+    decile_edges = np.quantile(price_subset_log, np.linspace(0, 1, 11))
+    
+    # Map all points (but only plot valid ones)
     decile_idx = np.full_like(log_price_all, fill_value=-1, dtype=int)
-    decile_idx[mask_finite_price] = np.searchsorted(decile_edges[1:-1], 
-                                                        log_price_all[mask_finite_price], side="right")
-    valid_mask = decile_idx >= 0
+    # Only map the subset indices
+    subset_decile_vals = np.searchsorted(decile_edges[1:-1], price_subset_log, side="right")
+    decile_idx[mask_common] = subset_decile_vals
+    
+    # Valid mask for plotting is just mask_common
+    valid_mask = mask_common
     
     fig, ax = plt.subplots(figsize=(7, 6))
     sc = ax.scatter(mu_z[valid_mask, plot_dim1], mu_z[valid_mask, plot_dim2],
