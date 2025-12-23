@@ -373,6 +373,7 @@ else:
     y_true_eval = y_true # Fix NameError
     mu_log_eval = log_mu
     var_log_eval = var_log
+    resid_log = y_true_log_eval - mu_log_eval # Fix IndexError/Stale Global
     # Indices for metadata fetch
     eval_indices = df_pred.index.values[obs_idx][test_rel_idx]
     # Integer positions in df_pred (for X_mask / mu_z alignment)
