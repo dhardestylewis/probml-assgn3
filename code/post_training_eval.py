@@ -178,8 +178,8 @@ def add_graded_density_contours(ax, x, y, xlim, ylim, levels=5):
         ax.contour(X_grid, Y_grid, Z_grid, levels=levels, 
                    linewidths=linewidths, colors=level_colors, zorder=3)
         
-        # Annotation explaining the lines
-        ax.text(0.02, 0.98, "Contours: Density Iso-lines\n(Linear Scale)",
+        # Annotation explaining the lines (Removed "(Linear Scale)" per user request)
+        ax.text(0.02, 0.98, "Contours: Density Iso-lines",
                 transform=ax.transAxes, fontsize=8, verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.3),
                 zorder=4)
@@ -238,7 +238,7 @@ def sale_year_bin_table(meta_df, yr_col, y_true, mu, var, bin_width=1, min_count
             
             # Coverage
             for alpha, key in [(0.50, "cov_50"), (0.80, "cov_80"), (0.95, "cov_95")]:
-                z = normal_ppf_np(0.5 + alpha/2.0)
+                z = normal_ppf_torch(0.5 + alpha/2.0)
                 lower = mu_i - z * sig_i
                 upper = mu_i + z * sig_i
                 covered = float(np.mean((y_i >= lower) & (y_i <= upper)))
@@ -595,6 +595,26 @@ y_true_log_eval, mu_log_eval, var_log_eval, eval_pos_idx, meta_eval = apply_glob
 
 # Keep a single aligned name downstream
 df_pred_filtered = meta_eval
+
+# --- CONSISTENCY FILTER: Enforce Building Class Availability ---
+# Ensure metrics/residuals use the exact same subset as Latent Plots
+bldg_candidates_check = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
+bldg_col_check = next((c for c in bldg_candidates_check if c in df_pred_filtered.columns), None)
+
+if bldg_col_check:
+    mask_valid_bldg = df_pred_filtered[bldg_col_check].notna().to_numpy()
+    n_before_bldg = len(df_pred_filtered)
+    n_after_bldg = mask_valid_bldg.sum()
+    
+    if n_after_bldg < n_before_bldg:
+        print(f"[Eval] Consistency: Dropping {n_before_bldg - n_after_bldg} rows with missing '{bldg_col_check}' to match Latent Plots.")
+        df_pred_filtered = df_pred_filtered.iloc[mask_valid_bldg]
+        y_true_log_eval = y_true_log_eval[mask_valid_bldg]
+        mu_log_eval = mu_log_eval[mask_valid_bldg]
+        if var_log_eval is not None:
+             var_log_eval = var_log_eval[mask_valid_bldg]
+        if eval_pos_idx is not None:
+             eval_pos_idx = eval_pos_idx[mask_valid_bldg]
 
 # Post-filter hard alignment asserts (Gate F)
 n_post = y_true_log_eval.shape[0]
@@ -1083,7 +1103,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
         ax.grid(False)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.tight_layout(rect=[0, 0.15, 1, 0.95]) # Increased bottom margin for 90deg ticks
         save_figure("residuals_standardized_vs_pred.png")
         plt.show()
     else:
@@ -1238,6 +1258,11 @@ if y_true_log_eval is not None and mu_log_eval is not None:
     ax.set_ylim(-1, 1)
     
     plt.figtext(0.5, 0.01, r"Conditional Bias: $\mathbb{E}[r \mid \hat{y}]$ where $r = \log(y) - \log(\hat{y})$", ha="center", fontsize=9, fontstyle='italic')
+
+    # Apply Ticks and Labels to match 'Residuals vs Pred'
+    ax.set_xticks(curr_ticks)
+    ax.set_xticklabels(curr_labels, rotation=90)
+    ax.set_xlim(left=np.log(100_000))
 
     ax.legend(loc='upper right', framealpha=0.9)
     ax.grid(False) # Strict Grid Removal
@@ -1420,8 +1445,8 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                          
                          if len(bin_sigma_means) == len(bin_centers_m):
                              ax2 = ax1.twinx()
-                             ax2.plot(bin_centers_m, bin_sigma_means, 'b--s', label='Mean Sigma (Uncertainty)')
-                             ax2.set_ylabel("Sigma", color='blue')
+                             ax2.plot(bin_centers_m, bin_sigma_means, 'b--s', label='Mean Predicted Standard Deviation')
+                             ax2.set_ylabel("Predicted Standard Deviation", color='blue')
                              ax2.tick_params(axis='y', labelcolor='blue')
                              plt.figtext(0.5, 0.01, "Values in Log Space", ha="center", fontsize=9, fontstyle='italic')
                              
@@ -1847,15 +1872,36 @@ if mask_finite_price.sum() > 0:
     plt.show()
 
 # --- 7a. Latent colored by SALE PRICE (continuous log scale) ---
+# SHARED MASK STRATEGY: Enforce identical points for Price and Building Class plots
+# Filters:
+# 1. Price >= $100k
+# 2. Building Class not missing (if column exists)
 
-# Filter: require price >= $100,000 (log >= 11.51) to exclude anomalies
-MIN_PRICE_LOG = np.log(100_000)  # ~11.51
-mask_valid_price = np.isfinite(log_price_all) & (log_price_all >= MIN_PRICE_LOG)
+limit_log = np.log(100_000)
+mask_price = np.isfinite(log_price_all) & (log_price_all >= limit_log)
 
-# Define Axis Limits based on selected dimensions (Robust 99% interval)
-# This replaces any hardcoded limits
-if mask_valid_price.sum() > 100:
-    z_vals_all = mu_z[mask_valid_price]
+bldg_class_candidates = ["bldg_class", "building_class", "bldg_class_group", "bldgclass"]
+bldg_class_col = next((c for c in bldg_class_candidates if c in df_pred.columns), None)
+
+if bldg_class_col:
+    mask_bldg = df_pred[bldg_class_col].notna()
+    mask_common = mask_price & mask_bldg
+    print(f"[Eval] Using COMMON Latent Mask (Price >= $100k AND Bldg Class Known). N={mask_common.sum()}")
+else:
+    mask_common = mask_price
+    print(f"[Eval] Using Price-Only Latent Mask (No Bldg Col). N={mask_common.sum()}")
+
+valid_z_price = mu_z[mask_common]
+valid_log_price = log_price_all[mask_common]
+
+if len(valid_log_price) > 100:
+    # Use common z for building plot later
+    bldg_z_common = valid_z_price 
+    bldg_series_common = df_pred.loc[mask_common, bldg_class_col].astype(str) if bldg_class_col else None
+
+    # Define Axis Limits based on selected dimensions (Robust 99% interval)
+    # This replaces any hardcoded limits
+    z_vals_all = mu_z[mask_common]
     x_lim_fixed = np.percentile(z_vals_all[:, plot_dim1], [0.5, 99.5])
     y_lim_fixed = np.percentile(z_vals_all[:, plot_dim2], [0.5, 99.5])
     # Add slight buffer
@@ -1866,13 +1912,9 @@ if mask_valid_price.sum() > 100:
     
     print(f"[Eval] Dynamic axis limits for z{plot_dim1+1}/z{plot_dim2+1}: X={x_lim_fixed}, Y={y_lim_fixed}")
 
-print(f"[Eval] Price filter: {mask_valid_price.sum()} / {np.isfinite(log_price_all).sum()} " +
-        f"properties with sale price >= $100K")
+    print(f"[Eval] Price filter: {mask_common.sum()} / {np.isfinite(log_price_all).sum()} " +
+            f"properties with sale price >= $100K (and valid bldg class if applicable)")
 
-if mask_valid_price.sum() > 100:
-    valid_log_price = log_price_all[mask_valid_price]
-    valid_z_price = mu_z[mask_valid_price]
-    
     # --- VERSION 1: Scatter + Contour ---
     fig, ax = plt.subplots(figsize=(7, 6))
     
@@ -2069,8 +2111,8 @@ if mask_valid_price.sum() > 100:
     cbar.solids.set_alpha(1.0)
     
     # Add Density Contours removed for Hexbin (relies on Alpha Transparency)
-    # Add annotation for transparency
-    ax.text(0.02, 0.98, "Opacity $\\propto$ Density\n(Linear Scale)", 
+    # Add annotation for transparency (Removed "(Linear Scale)")
+    ax.text(0.02, 0.98, "Opacity $\\propto$ Density", 
             transform=ax.transAxes, fontsize=8, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, pad=0.3),
             zorder=4)
@@ -2247,17 +2289,16 @@ if bldg_class_col:
     
     # Filter to same price range as price plots (>= $100K)
     bldg_price_mask = mask_valid_price  # Reuse the mask from price plots
-    print(f"[Eval] Building class plots using {bldg_price_mask.sum()} properties with price >= $100K")
+    print(f"[Eval] Building class plots: Using Shared Mask subset N={len(bldg_z_common)}")
     
-    bldg_z = mu_z[bldg_price_mask]
+    bldg_z = bldg_z_common
+    bldg_series_full = bldg_series_common
     
-    # FIX: Correctly handle NaNs to avoid "nan" -> "N" bug
-    bldg_raw = df_pred[bldg_class_col].iloc[bldg_price_mask] # Align with bldg_z
-    
-    # 1. Filter out true NaNs from both Z and Labels
-    valid_bldg_mask = bldg_raw.notna()
+    # Pre-filtered by mask_common, so no need for further NaNs check (notna was in mask)
+    # But for safety in case Logic changed:
+    valid_bldg_mask = bldg_series_full.notna() # Should be all True
     bldg_z = bldg_z[valid_bldg_mask]
-    bldg_series_full = bldg_raw[valid_bldg_mask].astype(str)
+    bldg_series_full = bldg_series_full[valid_bldg_mask].astype(str)
     
     # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
     codes_raw, uniques_raw = pd.factorize(bldg_series_full)
