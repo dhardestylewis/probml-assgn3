@@ -1586,7 +1586,7 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   # Plot binned residuals (hexbin) to show spatial pattern
                   hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
-                  plt.colorbar(hb, ax=ax, label="Mean Residual")
+                  plt.colorbar(hb, ax=ax, label="Mean Residual", fraction=0.046, pad=0.04)
                   # Infer CRS based on coordinates
                   is_geo = False
                   if valid_geo[x_col].max() < 185 and valid_geo[x_col].min() > -185:
@@ -2624,6 +2624,9 @@ for i, d in enumerate(dims_to_plot):
     ax.set_xlim(xlim_global)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+    
+    # User requested transparent/thin/grey gridlines
+    ax.grid(True, linestyle=':', alpha=0.3, color='gray')
 
 # Title
 fig.suptitle("Latent Marginal Distributions", fontsize=14, fontweight='bold', y=1.02)
