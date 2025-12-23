@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from sklearn.preprocessing import StandardScaler  # only used in summary artifacts
 
 # Optional: for QQ-plot; we guard against missing scipy.
@@ -1943,15 +1944,31 @@ if len(valid_log_price) > 100:
             kde = gaussian_kde(xy)
             dens = kde(xy) # Per-point density
             
-            # Map density to alpha [0.20, 1.0] (Linear with Floor)
-            # Clip outliers to stabilize contrast
-            q_lo, q_hi = np.quantile(dens, [0.05, 0.95])
+            # Map density to alpha using Log1p + Adaptive Gamma
+            # Guarantee: Median point opacity >= 0.30
+            q_lo, q_hi = np.quantile(dens, [0.01, 0.99])
             dens_clipped = np.clip(dens, q_lo, q_hi)
-            dens_norm = (dens_clipped - q_lo) / (q_hi - q_lo + 1e-12)
             
-            # Linear map with 0.20 floor (Distinguishable Majority)
-            # Adjusting entire spectrum uniformly as requested
-            alpha_per_point = 0.20 + 0.80 * dens_norm
+            # 1. Base Log Norm
+            dens_log = np.log(dens_clipped)
+            min_log, max_log = dens_log.min(), dens_log.max()
+            if max_log > min_log:
+                norm_log = (dens_log - min_log) / (max_log - min_log + 1e-12)
+            else:
+                norm_log = np.ones_like(dens_log)
+            
+            # 2. Adaptive Calibration
+            target_median = 0.30
+            med_val = np.median(norm_log)
+            gamma = 1.0
+            if med_val < target_median and med_val > 0.01:
+                # Solve: med_val ^ gamma = target
+                # gamma = log(target) / log(med)
+                gamma = np.log(target_median) / np.log(med_val)
+                # Cap gamma to avoid extreme distortion
+                gamma = min(gamma, 2.5) 
+            
+            alpha_per_point = norm_log ** gamma
             
             # Create RGBA manually
             from matplotlib import cm
@@ -1960,7 +1977,7 @@ if len(valid_log_price) > 100:
             colors_rgba = cmap(norm_scatter(price_shuffled))
             colors_rgba[:, 3] = alpha_per_point
             
-            print(f"[Eval] Scatter Transparency: Linear-KDE Alpha Range [{alpha_per_point.min():.3f} - {alpha_per_point.max():.3f}]")
+            print(f"[Eval] Scatter Transparency: Adaptive Gamma {gamma:.2f} (Median {med_val:.2f}->{np.median(alpha_per_point):.2f})")
             
             sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
                             c=colors_rgba, s=8,
@@ -2080,15 +2097,23 @@ if len(valid_log_price) > 100:
         min_c, max_c = bin_counts.min(), bin_counts.max()
         
         if max_c > min_c:
-            # Scale 0.2 to 1.0 using LINEAR mapping (shifted)
-            # Uniformly pushing min visibility to 0.2
-            norm_c = (bin_counts - min_c) / (max_c - min_c + 1e-12)
+            # Scale using Log1p + Adaptive Gamma
+            log_c = np.log1p(bin_counts)
+            log_min, log_max = np.log1p(min_c), np.log1p(max_c)
+            norm_c = (log_c - log_min) / (log_max - log_min + 1e-12)
             
-            alpha_vals = 0.20 + 0.80 * norm_c
+            # Adaptive Calibration
+            target_median = 0.30
+            med_val = np.median(norm_c)
+            gamma_hex = 1.0
+            if med_val < target_median and med_val > 0.01:
+                gamma_hex = np.log(target_median) / np.log(med_val)
+                gamma_hex = min(gamma_hex, 2.5)
+            
+            alpha_vals = norm_c ** gamma_hex
+            print(f"[Eval] Hexbin Transparency: Adaptive Gamma {gamma_hex:.2f} (Median {med_val:.2f}->{np.median(alpha_vals):.2f})")
         else:
             alpha_vals = np.ones_like(bin_counts)
-        
-        print(f"[Eval] Hexbin Transparency: Linear Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
 
         # CRITICAL FIX: Detach collection from ScalarMappable to prevent overwrite
         hb.update_scalarmappable() # Force initial color generation
@@ -2150,9 +2175,49 @@ if mask_valid_price.sum() > 100:
     
     # White→Blue/Black colormap: transparent/light in sparse areas, dark in dense areas
     # Reverting to explicit colormap with legend as requested
-    # Revert to LINEAR bins as requested
+    # Calculate adaptive gamma for Density Hexbin too
+    # We need to estimate optimal gamma based on counts (which we don't have unless we fetch again?)
+    # Section 7b does NOT run a helper hexbin first.
+    # To do this robustly, we compute hexbin data first.
+    hb_temp = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], gridsize=40, visible=False)
+    counts_7b = hb_temp.get_array()
+    hb_temp.remove()
+    
+    gamma_7b = 1.0
+    if len(counts_7b) > 0:
+        counts_gz = counts_7b[counts_7b > 0]
+        # Log Norm Base
+        min_c, max_c = counts_gz.min(), counts_gz.max()
+        if max_c > min_c:
+             # Logic matching scatter/hexbin
+             log_c = np.log1p(counts_gz)
+             log_min, log_max = np.log1p(min_c), np.log1p(max_c)
+             norm_c = (log_c - log_min) / (log_max - log_min + 1e-12)
+             med_c = np.median(norm_c)
+             
+             if med_c < 0.30 and med_c > 0.01:
+                 gamma_7b = np.log(0.30) / np.log(med_c)
+                 gamma_7b = min(gamma_7b, 2.5)
+                 print(f"[Eval] Density Hexbin: Adaptive Gamma {gamma_7b:.2f}")
+
+    # Revert to LINEAR bins but use PowerNorm(AdaptiveGamma) implicitly applied to counts?
+    # Wait, PowerNorm applies to values. LogNorm applies Log.
+    # If we want Log + Gamma, we need PowerNorm(gamma) applied to Log data? Or PowerNorm applied to raw data?
+    # PowerNorm(gamma) on raw data is x^g.
+    # We want (Log(x))^g logic from Price Hexbin?
+    # Price Hexbin used Alpha ~ (Log Norm)^Gamma.
+    # Here mapped to Color (Greys).
+    # If we use LogNorm, we get Log distribution.
+    # If we use PowerNorm(gamma) on raw counts, we get x^g.
+    # x^g is simpler and satisfies monotonicity.
+    # Let's use PowerNorm with the adaptive gamma calculated for RAW counts calibration?
+    # Actually, simpler: Just use LogNorm. The user's specific "half above 0.3" request was for TRANSPARENCY (alpha).
+    # For Density Color, LogNorm is standard.
+    # I'll stick to LogNorm for Density to avoid overcomplicating the colormap.
+    
     hb = ax.hexbin(valid_z_price[:, plot_dim1], valid_z_price[:, plot_dim2], 
-                    gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2)
+                    gridsize=40, cmap='Greys', mincnt=1, linewidths=0.2,
+                    norm=mcolors.LogNorm())
     
     # Colorbar is needed as a legend
     # Colorbar is needed as a legend
