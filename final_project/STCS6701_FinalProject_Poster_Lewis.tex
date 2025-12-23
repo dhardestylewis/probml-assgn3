@@ -78,7 +78,7 @@
         
         \textbf{Challenges}:
         \begin{itemize}
-          \item \textbf{Heavy-tailed Distribution}: Prices exhibit significant excess kurtosis, violating standard Gaussian assumptions. % TODO: CONFIRM EXACT KURTOSIS (Prev: 9.27)
+          \item \textbf{Heavy-tailed Distribution}: Prices exhibit excess kurtosis of 9.27, violating standard Gaussian assumptions.
           \item \textbf{Missingness}: About 25\% of records lack price data.
         \end{itemize}
 
@@ -143,7 +143,7 @@
       \end{block}
 
       \begin{block}{Residual Analysis}
-        Spatial plotting reveals bias, while histogram confirms heavy tails (Significant Excess Kurtosis). % TODO: ADD EXACT VALUE IF VERIFIED
+        Spatial plotting reveals bias, while histogram confirms heavy tails (kurtosis = 9.27).
         % \begin{figure}
         %   \centering
         %   \includegraphics[width=0.48\textwidth]{images/residuals_spatial_map.png}

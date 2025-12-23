@@ -821,3 +821,68 @@ At the end of each substantive answer, include a short meta-calibration block wi
 - Logged all prompts to PROMPTS-LOG.md
 - Committed all changes
 
+### 182. [2025-12-23 16:36] ICML Style and Table Formatting
+**User Prompt:**
+> Where is the ICML style applied?
+> [followed by:] these should always be written in human readable prices 2.46 × 107 MAE (price in $) 2.18 × 106... methodology or calculation or formula notes do not belong in table instead give those human readable names do not write "price in" just make them dollar amounts
+> [followed by:] have you pulled in reference publications to follow similar tables in those publications?
+
+**Action:**
+- Explained ICML style is in P2.2 TODO (not yet applied)
+- Updated table values: scientific notation → human-readable ($24.6M, $2.18M, $128K, $60M)
+- Simplified metric names (removed methodology notes)
+- **NOTE: Reference publications not yet downloaded** - attempted but blocked by proxy in other session
+
+### 183. [2025-12-23 16:38] Table Sync and Naming
+**User Prompt:**
+> i still see the report and poster in hw3 folder?
+> [followed by:] give report and poster a sensible and similar name adhere to a naming scheme
+
+**Action:**
+- Removed poster/report PDFs and intermediates from hws/hw3.d
+- Renamed to STCS6701_FinalProject_Report_Lewis.tex and STCS6701_FinalProject_Poster_Lewis.tex
+
+### 184. [2025-12-23 16:41] Critiques Consolidation
+**User Prompt:**
+> critiques.md needs to be folded into TODO and COMPLETED
+
+**Action:**
+- Moved critiques.md to final_project/
+- Added P2.3 summary referencing final_project/critiques.md (~65 outstanding items)
+
+### 185. [2025-12-23 16:44] Eval Contract Finalization
+**User Prompt:**
+> Yes. This version captures the concerns sufficiently... Two small adjustments: 1. Tighten the relationship between P1.1 and P1.3d... 2. Add one explicit "smoke test" that validates the entire contract... Add eval_smoke_test(): constructs df_eval, builds eval_audit_df, runs PIT/coverage block, generates at least one latent plot and one residual plot, and asserts...
+
+**Action:**
+- Added eval-space mask items to P1.1 with invariant and assertion location
+- Added eval_smoke_test() to P1.3c with 4 specific assertions
+- Specified failure message text for df_pred-space mask detection
+
+### 186. [2025-12-23 16:46] hw2.d Protection and Image Descriptions
+**User Prompt:**
+> mark hw2.d SUBMITTED DO NOT TOUCH
+> [followed by:] ensure HW3 todo of reviewing, returning the images is reflected and later recompiling the tex
+
+**Action:**
+- Renamed hws/hw2.d to hw2.d-SUBMITTED_DO_NOT_TOUCH
+- Added P2.4 for image review and recompilation from IMAGE_DESCRIPTIONS.md
+- Fetched and merged IMAGE_DESCRIPTIONS.md from claude/image-descriptions branch
+
+### 187. [2025-12-23 16:49] Image Descriptions Utilization
+**User Prompt:**
+> now utilize those image descriptions for the poster and report, especially checking for any out of date information
+
+**Action:**
+- Cross-referenced IMAGE_DESCRIPTIONS.md with poster/report
+- Updated kurtosis from TODO placeholder to confirmed 9.27
+- Synced poster table to include 95th Percentile Error matching report
+
+### 188. [2025-12-23 16:50] Reference Publications and Logging Check
+**User Prompt:**
+> where are those reference publications? are my prompts and concerns from earlier in this conversation adequately and verbatim input into LOGS and TODOS?
+
+**Action:**
+- Confirmed reference publications NOT yet downloaded (P2.2 TODO, proxy blocked in other session)
+- Added prompts 182-188 to PROMPTS-LOG.md to capture all session concerns
+

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 16:47
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 16:52
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1122,7 +1122,7 @@ not changed.
 Here is how much of TeX's memory you used:
  22718 strings out of 468081
  437497 string characters out of 5426756
- 867417 words of memory out of 5000000
+ 867301 words of memory out of 5000000
  50905 multiletter control sequences out of 15000+600000
  637250 words of font info for 73 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1137,7 +1137,7 @@ onts/type1/public/amsfonts/cm/cmssbx10.pfb><C:/Users/dhl/AppData/Local/Programs
 /MiKTeX/fonts/type1/public/amsfonts/cm/cmssi17.pfb><C:/Users/dhl/AppData/Local/
 Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/dhl/AppData
 /Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on STCS6701_FinalProject_Poster_Lewis.pdf (1 page, 1053418 bytes
+Output written on STCS6701_FinalProject_Poster_Lewis.pdf (1 page, 1053314 bytes
 ).
 PDF statistics:
  108 PDF objects out of 1000 (max. 8388607)
