@@ -1886,38 +1886,48 @@ if mask_valid_price.sum() > 100:
     z_shuffled = valid_z_price[shuffle_idx]
     price_shuffled = valid_log_price[shuffle_idx]
     
+    # Define limits early for alpha/normalization logic
+    # Cap vmax at $250M (consistent with user request)
+    vmax_cap = np.log(250_000_000.0)
+    vmax = vmax_cap # Alias for tick logic below
+    vmin = float(np.nanmin(valid_log_price))
+    
     # Scatter with continuous log-price coloring
-    # Calculate density-based alpha for points
-    # Use 2D histogram to get density count for each point
+    # Calculate density-based alpha using KDE (Isoline-Consistent)
     try:
-        H, xedges, yedges = np.histogram2d(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], bins=50)
-        # Interpolate/Lookup counts
-        x_idxs = np.clip(np.searchsorted(xedges, z_shuffled[:, plot_dim1]) - 1, 0, 49)
-        y_idxs = np.clip(np.searchsorted(yedges, z_shuffled[:, plot_dim2]) - 1, 0, 49)
-        point_counts = H[x_idxs, y_idxs]
-        
-        # Map counts to alpha [0.1, 1.0]
-        # Linear scale mapping
-        min_c, max_c = point_counts.min(), point_counts.max()
-        if max_c > min_c:
-             alpha_per_point = 0.1 + 0.9 * (point_counts - min_c) / (max_c - min_c)
+        if HAVE_SCIPY:
+            from scipy.stats import gaussian_kde
+            xy = np.vstack([z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2]])
+            kde = gaussian_kde(xy)
+            dens = kde(xy) # Per-point density
+            
+            # Map density to alpha [0.05, 1.0]
+            # Clip outliers to stabilize contrast
+            q_lo, q_hi = np.quantile(dens, [0.05, 0.95])
+            dens_clipped = np.clip(dens, q_lo, q_hi)
+            dens_norm = (dens_clipped - q_lo) / (q_hi - q_lo + 1e-12)
+            
+            # Gamma > 1 emphasizes dense cores, < 1 spreads opacity
+            gamma = 1.5
+            alpha_per_point = 0.05 + 0.95 * (dens_norm ** gamma)
+            
+            # Create RGBA manually
+            from matplotlib import cm
+            norm_scatter = plt.Normalize(vmin=vmin, vmax=vmax_cap)
+            cmap = plt.cm.get_cmap('viridis')
+            colors_rgba = cmap(norm_scatter(price_shuffled))
+            colors_rgba[:, 3] = alpha_per_point
+            
+            print(f"[Eval] Scatter Transparency: KDE Alpha Range [{alpha_per_point.min():.3f} - {alpha_per_point.max():.3f}]")
+            
+            sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
+                            c=colors_rgba, s=8,
+                            edgecolors='none', zorder=2)
         else:
-             alpha_per_point = np.ones_like(point_counts) * 0.5
-        
-        # We need to set alpha via facecolors/edgecolors since 'alpha' kwarg doesn't take array in simple scatter
-        # But we also have 'c' mapped to colormap.
-        # We can create the RGBA array manually.
-        from matplotlib import cm
-        norm = plt.Normalize(vmin=vmin, vmax=vmax_cap)
-        cmap = plt.cm.get_cmap('viridis')
-        colors_rgba = cmap(norm(price_shuffled))
-        colors_rgba[:, 3] = alpha_per_point  # Set alpha channel
-        
-        sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
-                        c=colors_rgba, s=8,
-                        edgecolors='none', zorder=2)
+            raise ImportError("Scipy needed for KDE alpha")
+
     except Exception as e_alpha:
-        print(f"[Eval] Could not compute variable alpha: {e_alpha}. Using constant.")
+        print(f"[Eval] Could not compute KDE alpha: {e_alpha}. Using constant.")
         sc = ax.scatter(z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], 
                         c=price_shuffled, s=8, alpha=0.5, cmap='viridis',
                         edgecolors='none', zorder=2, vmax=vmax_cap)
@@ -1925,8 +1935,7 @@ if mask_valid_price.sum() > 100:
     # Add Graded Density Contours Overlay
     add_graded_density_contours(ax, z_shuffled[:, plot_dim1], z_shuffled[:, plot_dim2], x_lim_fixed, y_lim_fixed)
     
-    # Create explicit ScalarMappable for colorbar to ensure it represents Price (opaque)
-    # independent of point transparency
+    # Create explicit ScalarMappable for colorbar
     sm = plt.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=vmin, vmax=vmax_cap))
     sm.set_array([])
     
@@ -1936,7 +1945,6 @@ if mask_valid_price.sum() > 100:
     cbar.solids.set_alpha(1.0)
     
     # Log-scale tick labels
-    vmin, vmax = valid_log_price.min(), vmax_cap
     log_ticks = [np.log(100_000), np.log(250_000), np.log(500_000), 
                     np.log(1_000_000), np.log(2_500_000), np.log(5_000_000),
                     np.log(10_000_000), np.log(25_000_000), np.log(50_000_000),
