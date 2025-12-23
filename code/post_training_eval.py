@@ -1609,7 +1609,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                   # Plot binned residuals (hexbin) to show spatial pattern
                   hb = ax.hexbin(valid_geo[x_col], valid_geo[y_col], C=valid_geo['residual'],
                                  gridsize=50, cmap='coolwarm', vmin=-1, vmax=1, reduce_C_function=np.mean)
-                  plt.colorbar(hb, ax=ax, label="Mean Residual", fraction=0.046, pad=0.04)
+                  # User requested "much smaller... objective size". Shrink=0.6 reduces effective height.
+                  # aspect=20 makes it thinner (default is 20, but typically good).
+                  plt.colorbar(hb, ax=ax, label="Mean Residual", shrink=0.6, aspect=20, pad=0.04)
                   # Infer CRS based on coordinates
                   is_geo = False
                   if valid_geo[x_col].max() < 185 and valid_geo[x_col].min() > -185:
