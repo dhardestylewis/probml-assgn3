@@ -2211,14 +2211,15 @@ if len(valid_log_price) > 100:
     ax.set_xlim(x_lim_fixed)
     ax.set_ylim(y_lim_fixed)
     
-    # Title - no subtitle
-    ax.set_title("Latent Space by Price", fontweight='bold', fontsize=14)
+    # Title - no subtitle, padded
+    ax.set_title("Latent Space by Price", fontweight='bold', fontsize=14, pad=8)
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(False) # Strict removal
     
-    plt.tight_layout()
+    # Match margins with Price Scatter
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     save_figure("latent_space_price_hexbin.png")
     plt.show()
 
@@ -2281,15 +2282,10 @@ if mask_valid_price.sum() > 100:
         
     cbar.set_label("Count", fontsize=10)
     
-    # Create clean integer ticks using MaxNLocator
-    import matplotlib.ticker as ticker
-    locator = ticker.MaxNLocator(nbins=5, integer=True, steps=[1, 2, 5, 10])
-    tick_vals = locator.tick_values(0, max_c)
-    # Filter to range
-    tick_vals = [t for t in tick_vals if 0 <= t <= max_c]
-    tick_labels = [f"{int(t):,}" for t in tick_vals]
-    cbar.set_ticks(tick_vals)
-    cbar.set_ticklabels(tick_labels)
+    # Create clean integer ticks using MaxNLocator?
+    # NO: LogNorm manages ticks best automatically. Manual linear ticks break it.
+    # Just ensure minor ticks are on if helpful
+    cbar.minorticks_on()
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
@@ -2304,14 +2300,15 @@ if mask_valid_price.sum() > 100:
     ax.set_xlim(x_lim_fixed)
     ax.set_ylim(y_lim_fixed)
     
-    # Standardized Title
-    ax.set_title("Latent Space Density", fontweight='bold', fontsize=14)
+    # Standardized Title with padding to match Price Scatter
+    ax.set_title("Latent Space Density", fontweight='bold', fontsize=14, pad=8)
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(False) # Strict removal
     
-    plt.tight_layout()
+    # Match margins with Price Scatter (provides space for potential footnotes and aligns axes)
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     save_figure("latent_space_density.png")
     plt.show()
 
