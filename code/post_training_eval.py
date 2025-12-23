@@ -1528,8 +1528,9 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         ax1.plot(fracs_to_test, rmse_list, '-o', color='#21918c', label='Root Mean Square Error')
                         ax1.plot(fracs_to_test, unc_list, '--s', color='#440154', label='Mean Predicted Sigma') # Same axis
                         
-                        ax1.set_xlabel("Synthetic Missing Fraction", fontsize=11)
-                        ax1.set_ylabel("Log-Price Error / Uncertainty", fontsize=11) # Shared Label
+                        ax1.set_xlabel("Fraction Masked", fontsize=11)
+                        # ax1.set_ylabel("", fontsize=11) # User requested no y-axis label
+                        ax1.set_ylabel("")
                         ax1.set_ylim(bottom=0)  # Y-axis starts at 0
                         
                         ax1.legend(loc='upper left', framealpha=0.9)
