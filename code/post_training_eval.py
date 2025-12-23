@@ -2031,32 +2031,31 @@ if mask_valid_price.sum() > 100:
         
         if max_c > min_c:
             # Scale 0.1 to 1.0 using SQUARED mapping to emphasize high density
-            # This makes low/medium density transparency much more visible
-            norm_c = (bin_counts - min_c) / (max_c - min_c)
+            norm_c = (bin_counts - min_c) / (max_c - min_c + 1e-12)
             alpha_vals = 0.05 + 0.95 * (norm_c ** 2)
         else:
             alpha_vals = np.ones_like(bin_counts)
         
         print(f"[Eval] Hexbin Transparency: Squared Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
 
-        # Robust way: Re-map colors manually
-        # Use the norm from the hexbin itself to ensure consistency
-        from matplotlib import cm
-        cmap = plt.get_cmap('viridis')
-        # Use hb norm
-        norm = hb.norm if hb.norm else plt.Normalize(vmin=hb.get_clim()[0], vmax=hb.get_clim()[1])
-        
-        # Map C-values (means) to RGBA
-        mapped_colors = cmap(norm(hb.get_array()))
-        mapped_colors[:, 3] = alpha_vals # Overwrite alpha
-        
-        # Apply
-        hb.set_facecolors(mapped_colors)
+        # CRITICAL FIX: Detach collection from ScalarMappable to prevent overwrite
+        hb.update_scalarmappable() # Force initial color generation
+        rgba = hb.get_facecolors()
+        if len(rgba) == len(alpha_vals):
+            rgba[:, 3] = alpha_vals # Overwrite alpha
+            hb.set_facecolors(rgba)
+            
+            # Prevent future updates from overwriting RGBA
+            hb.set_array(None) 
+            
         # Remove opaque edges to ensure transparency works visually
         hb.set_linewidths(0) 
-        # hb.set_edgecolors('face') # Redundant if linewidth=0
 
-    cbar = plt.colorbar(hb, ax=ax, extend='max')
+    # Create distinct ScalarMappable for colorbar (fully opaque)
+    sm = plt.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=vmin, vmax=vmax_cap))
+    sm.set_array([])
+    
+    cbar = plt.colorbar(sm, ax=ax, extend='max')
     cbar.set_label("Mean Sale Price", fontsize=10)
     # Ensure colorbar is opaque
     cbar.solids.set_alpha(1.0)
@@ -2243,11 +2242,17 @@ if bldg_class_col:
     print(f"[Eval] Building class plots using {bldg_price_mask.sum()} properties with price >= $100K")
     
     bldg_z = mu_z[bldg_price_mask]
-    bldg_series_full = df_pred[bldg_class_col].astype(str)
+    
+    # FIX: Correctly handle NaNs to avoid "nan" -> "N" bug
+    bldg_raw = df_pred[bldg_class_col].iloc[bldg_price_mask] # Align with bldg_z
+    
+    # 1. Filter out true NaNs from both Z and Labels
+    valid_bldg_mask = bldg_raw.notna()
+    bldg_z = bldg_z[valid_bldg_mask]
+    bldg_series_full = bldg_raw[valid_bldg_mask].astype(str)
     
     # --- 7c-ORIG. ORIGINAL Simple building class scatter (for comparison) ---
-    bldg_series_raw = bldg_series_full[bldg_price_mask]
-    codes_raw, uniques_raw = pd.factorize(bldg_series_raw)
+    codes_raw, uniques_raw = pd.factorize(bldg_series_full)
     
     fig, ax = plt.subplots(figsize=(7, 6))
     for code, label in enumerate(uniques_raw):
@@ -2257,8 +2262,6 @@ if bldg_class_col:
         ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=5, alpha=0.5, label=label)
     ax.set_xlabel(label_x)
     ax.set_ylabel(label_y)
-    ax.set_xticks([])
-    ax.set_yticks([])
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by building class\n(Original Simple Version)",
@@ -2275,7 +2278,7 @@ if bldg_class_col:
     
     # --- Enhanced version: Aggregate to first letter (major category) ---
     # Use the filtered data from above (same properties as price plots)
-    bldg_series = bldg_series_full[bldg_price_mask].str[0].str.upper()
+    bldg_series = bldg_series_full.str[0].str.upper()
     
     # NYC Building Class codes - consumer-facing order (like StreetEasy/Zillow)
     # Order: Condos/Co-ops -> Multi-family Rental -> Houses -> Commercial -> Industrial -> Other
