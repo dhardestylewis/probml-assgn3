@@ -2,6 +2,13 @@
 
 This file contains tasks that have been completed and verified, moved here from `TODO.md` to keep the active task list clean.
 
+## Completed [2025-12-23] (CHANGELOG Order)
+- [x] Link author name to Google Scholar [Completed: 2025-12-23 15:57]
+- [x] Create logs/ directory and timestamped log file [Completed: 2025-12-23 15:48]
+- [x] Add `(UNREVIEWED) [Added: timestamp]` tags to GUIDELINES.md Sections 1-7 and all subsections [Added: 2025-12-11 23:21] [Completed: 2025-12-11 23:27]
+
+---
+
 ## Priority Tasks
 
 ### P1 - Critical Completeness
