@@ -117,7 +117,7 @@
         Trained on approximately 122,000 NYC parcels. Loss stabilizes around 50 epochs.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{miwae_loss_elbo.png}
+          \includegraphics[width=0.9\textwidth]{convergence_loss.png}
           \caption{Training and Validation Loss on a Representative Fold.}
         \end{figure}
       \end{block}
@@ -145,9 +145,9 @@
         Residuals show significant heavy tails with Kurtosis approximately 9.27.
         \begin{figure}
           \centering
-          \includegraphics[width=0.48\textwidth]{miwae_residuals_histogram.png}
+          \includegraphics[width=0.48\textwidth]{residuals_hist_references.png}
           \hfill
-          \includegraphics[width=0.48\textwidth]{miwae_residuals_qq.png}
+          \includegraphics[width=0.48\textwidth]{residuals_qq.png}
           \caption{Log-price residuals vs Normal. Visual comparison highlights extreme kurtosis.}
         \end{figure}
       \end{block}
@@ -165,7 +165,7 @@
         Gradient $z_0/z_1$ suggests a "Value/Size" factor.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{miwae_latents_by_sale_price.png}
+          \includegraphics[width=0.9\textwidth]{latent_space_price.png}
           \caption{Latents colored by Price Decile.}
         \end{figure}
 
@@ -173,7 +173,7 @@
         Clusters separate building classes such as Small vs Mixed-Use.
         \begin{figure}
           \centering
-          \includegraphics[width=0.9\textwidth]{miwae_latents_by_building_class.png}
+          \includegraphics[width=0.9\textwidth]{latent_space_bldg.png}
           \caption{Latents colored by Building Class.}
         \end{figure}
       \end{block}
