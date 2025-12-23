@@ -4,7 +4,7 @@
 \usepackage{booktabs}
 \usepackage{amsmath,amssymb}
 \usepackage{geometry}
-\usepackage[colorlinks=true,linkcolor=ColumbiaBlue,urlcolor=ColumbiaBlue]{hyperref}
+\hypersetup{colorlinks=true,linkcolor=ColumbiaBlue,urlcolor=ColumbiaBlue}
 
 \geometry{
   paperwidth=48in,
@@ -132,9 +132,10 @@
             \textbf{Metric} & \textbf{Value} \\
             \midrule
             Avg. Log Posterior $p(y \mid x)$ & $-2.28$ \\
-            RMSE & $\$24.6$ Million \\
-            MAE & $\$2.18$ Million \\
-            Median Absolute Error & $\$128,000$ \\
+            RMSE & \$24.6 Million \\
+            MAE & \$2.18 Million \\
+            Median Absolute Error & \$128,000 \\
+            95th Percentile Error & \$60 Million \\
             \bottomrule
           \end{tabular}
           \caption{Predictive metrics.}

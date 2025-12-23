@@ -61,6 +61,14 @@ At the end of each **substantive answer**, include a short meta-calibration bloc
 - **Anchor Date**: This prime directive was last substantively updated and discussed on **2025-12-08**.
 - **Periodic Check-Ins**: Provide progress check-ins that reference this directive and its last-discussed date, commenting on how Daniel's communication and assistant responses are evolving relative to these goals.
 
+### PD.6 Conversation Improvement Meta-Reflection (UNREVIEWED) [Added: 2025-12-23 16:25]
+- **Commit Frequently During Work**: Do not wait for user to ask "have you been saving to git?" Commit after every meaningful change, especially before reorganizations.
+- **Proactive GUIDELINES Check**: When user provides analysis with structural implications (masks, contracts, dataflow), proactively check if GUIDELINES already covers these concerns. Update GUIDELINES without prompting.
+- **Log Conversation Takeaways Pre-Emptively**: Before wrap-up, proactively log conversation takeaways to PROMPTS-LOG.md. Do not wait for user to ask.
+- **Verify Preservation on Reorganizations**: When reorganizing files (especially TODO.md), explicitly verify no content is lost before proceeding. Report item counts (before vs after) and key phrase verification.
+- **Front-Load Critical Invariants**: When user provides detailed analysis, extract and surface the single most critical invariant (e.g., "eval-subset-only dataflow") as the organizing principle. State it explicitly in first response.
+- **Reference Code When Discussing Code Issues**: When discussing mask or dataflow defects, cite specific file and line ranges to anchor the discussion.
+
 ---
 
 ## P1 - Critical (Every Session)
@@ -99,6 +107,32 @@ At the end of each **substantive answer**, include a short meta-calibration bloc
 - **Verify against Guidelines**: Ensure content aligns with `UP Thesis Guidelines` and `UP Outline`.
 - **Check Constraints**: Monitor word counts, formatting requirements, and required sections (e.g., Abstract, Introduction types).
 - **Project-Specific**: For HW3, verify against `hw3_assignment.txt`. Ensure claims about model performance (RMSE, R²) match `hw3_verified.txt` or notebook outputs.
+
+### 1.5 Evaluation Discipline (UNREVIEWED) [Added: 2025-12-23 16:21]
+
+> **CRITICAL**: Evaluation plots must use **eval-subset-only** data. Never mix `df_pred`-wide arrays with eval-length arrays.
+
+#### 1.5.1 Eval-Subset-Only Dataflow (UNREVIEWED) [Added: 2025-12-23 16:21]
+- **Single Construction Point**: Construct `df_eval = df_pred[base_eval_mask].copy()` exactly once.
+- **Length Invariant**: All derived arrays (`z`, `mu_log_eval`, `y_log_eval`, `residuals`, etc.) must be eval-length.
+- **Enforce via Assertion**: Add `assert len(array) == len(df_eval)` for all derived arrays after `df_eval` construction.
+- **Plotting Functions**: Every plotting function accepts `df_eval` plus eval-length arrays; optional plot masks are defined in eval-index space (length `len(df_eval)`), not `df_pred` space.
+
+#### 1.5.2 Mask Discipline (UNREVIEWED) [Added: 2025-12-23 16:21]
+- **Single Source of Truth**: Define `base_eval_mask` over `df_pred` rows as the only admissible starting point for evaluation plots.
+- **Derived Masks**: All plot-specific masks (e.g., `mask_plot_price`, `mask_plot_class`) must derive from `base_eval_mask`.
+- **No Duplicate Mask Blocks**: Define masks once; remove any duplicate or hidden-state-dependent mask definitions.
+- **Explicit Labeling**: Any non-eval subset (e.g., "full dataset geometry") must be explicitly labeled and never mixed with eval plots.
+
+#### 1.5.3 Plot Contract Requirements (UNREVIEWED) [Added: 2025-12-23 16:21]
+- **Self-Reporting Banner**: Every evaluation figure must include a banner displaying: mask name, `n_total_eval`, `n_used`, and drop reasons.
+- **Read from Audit Artifact**: Plot banners should read counts from `eval_audit_df`, not recompute ad hoc.
+- **Consistent Binning**: Paired plots (e.g., value hexbin + count hexbin) must use identical binning, axis limits, and gridsize.
+
+#### 1.5.4 Row-Level Audit Artifact (UNREVIEWED) [Added: 2025-12-23 16:21]
+- **Single Source of Truth**: Create `eval_audit_df` with one row per `df_eval` row.
+- **Required Columns**: `has_z`, `has_price`, `passes_global_filter`, `has_bldg`, `in_plot_price`, `in_plot_class`, `drop_reason`.
+- **Persist Alongside Plots**: Save `eval_audit_df` (CSV or Parquet) in the same output directory as plots.
 
 ### 2. Fact Verification (UNREVIEWED) [Added: 2025-12-12 00:06]
 
@@ -189,6 +223,8 @@ Use commented section headers:
 - **Timestamp Insertion**: Append `[Added: YYYY-MM-DD HH:MM]` to every new item upon insertion.
 - [ ] "maintain structure": ensure the item is placed logically within its priority group relative to others.
 - [ ] "Verbatim Reflection": When capturing user critiques or requests as TODOs, record the text **verbatim** (quoted exactly). Do NOT summarize, paraphrase, or abbreviate with ellipses (...). **Exception**: You may automatically correct obvious misspellings. (UNREVIEWED) [Added: 2025-12-21 21:45]
+- [ ] "Invariant-First Pattern": When writing TODOs for critical sections, add one **Invariant** line per section stating the property that must hold, then add the single assertion that enforces it (e.g., `assert len(array) == len(df_eval)`). (UNREVIEWED) [Added: 2025-12-23 16:22]
+- [ ] "Mask Declaration Before Plotting": Before writing any new plot code, state the exact base mask in one line (e.g., `mask = base_eval_mask & mask_has_price`) and require the plot to print that mask name and `n_used` inside the figure. (UNREVIEWED) [Added: 2025-12-23 16:22]
 
 
 #### 6.2 Completion Policy (UNREVIEWED) [Added: 2025-12-11 23:27]

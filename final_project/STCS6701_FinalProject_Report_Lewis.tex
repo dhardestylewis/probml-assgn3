@@ -4,21 +4,29 @@
 \usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage[hyphens]{url}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
 \graphicspath{{images/}}
 \geometry{margin=1in}
+\sloppy
 
 \begin{document}
 
 \begin{center}
 {\Large STCS 6701: Probabilistic Machine Learning\\
-Homework 3}
+Prof.\ David Blei\\
+Final Project}
 
 \vspace{0.5em}
-{\LARGE \textbf{Semi-Supervised Latent Variable Model for\\ NYC Property Valuation}}
+{\LARGE \textbf{Semi-Supervised Latent Variable Model\\for NYC Property Valuation}}
 
 \vspace{1em}
 
-Due: Dec 5 at 11:59 pm ET
+Daniel Hardesty Lewis\\
+\href{mailto:dl3645@columbia.edu}{\texttt{dl3645@columbia.edu}}
+
+\vspace{0.5em}
+Due: Dec 24, 2025 at 1:00 pm ET
 \end{center}
 
 \section*{Abstract}
@@ -113,7 +121,7 @@ Here $\theta$ collects all generative parameters: the mixture prior, decoder, an
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.8\textwidth]{miwae_loss_elbo.png}
+    \includegraphics[width=0.8\textwidth]{convergence_loss.png}
     \caption{Convergence diagnostics for the SemiSupMIWAE model: training and validation loss versus epoch.}
     \label{fig:convergence-loss-miwae}
 \end{figure}
@@ -154,24 +162,23 @@ For properties with observed sale prices, I evaluate the posterior predictive di
 \begin{itemize}[noitemsep]
     \item Average log posterior predictive $\approx -2.28$ in log-price space.
     \item RMSE in log-price $\approx 1.84$ and MAE in log-price $\approx 0.97$.
-    \item In level space, RMSE $\approx 2.46\times 10^7$ and MAE $\approx 2.18\times 10^6$, reflecting the extreme scale and skewness of NYC property prices.
+    \item In dollar terms, RMSE $\approx$ \$24.6 Million and MAE $\approx$ \$2.18 Million, reflecting the extreme scale and skewness of NYC property prices.
     \item A global MAPE on prices that is skewed by a small number of very low-price transactions and therefore not representative of typical performance.
 \end{itemize}
 
 \begin{table}[t]
-    \centering
     \begin{tabular}{lr}
         \toprule
         Metric & Value \\
         \midrule
-        Avg.\ log $p(y \mid x)$ & $-2.28$ \\
-        RMSE (price in \$) & $2.46 \times 10^7$ \\
-        MAE (price in \$) & $2.18 \times 10^6$ \\
-        Median $|y - \hat{y}|$ (price in \$) & $1.28 \times 10^5$ \\
-        95th pct.\ $|y - \hat{y}|$ (price in \$) & $6.0 \times 10^7$ \\
+        Avg.\ Log Posterior & $-2.28$ \\
+        RMSE & \$24.6 Million \\
+        MAE & \$2.18 Million \\
+        Median Absolute Error & \$128,000 \\
+        95th Percentile Error & \$60 Million \\
         \bottomrule
     \end{tabular}
-    \caption{Posterior predictive metrics for SemiSupMIWAE on held-out data. All error metrics use posterior mean $\hat{y}$.}
+    \caption{Predictive metrics on held-out data.}
     \label{tab:global-metrics}
 \end{table}
 
@@ -179,7 +186,7 @@ Given the heavy-tailed nature of the residuals, mean-based metrics such as RMSE 
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.49\textwidth]{miwae_residuals_histogram.png}
+    \includegraphics[width=0.49\textwidth]{residuals_hist_references.png}
     \includegraphics[width=0.49\textwidth]{miwae_residuals_qq.png}
     \caption{Residual diagnostics for $\log(\text{sale\_price})$: histogram and QQ-plot versus a Normal reference, illustrating heavy tails.}
     \label{fig:residuals-log}
@@ -197,7 +204,7 @@ Finally, I inspect the learned latent variables. For properties with observed $y
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.8\textwidth]{miwae_latents_by_sale_price.png}
+    \includegraphics[width=0.8\textwidth]{latent_space_price.png}
     \caption{Latent space visualization: posterior means $(z_0, z_1)$ colored by sale-price deciles. A smooth gradient along one axis indicates that one latent dimension captures a value/size continuum.}
     \label{fig:latent-price}
 \end{figure}
@@ -208,7 +215,7 @@ When building-class information is available (e.g., small 1--4 family homes, lar
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.8\textwidth]{miwae_latents_by_building_class.png}
+    \includegraphics[width=0.8\textwidth]{latent_space_bldg.png}
     \caption{Latent space visualization: posterior means $(z_0, z_1)$ colored by building class (e.g., 1--4 family, large elevator, mixed-use). Distinct clusters suggest that the latent factors encode property-type structure.}
     \label{fig:latent-building-class}
 \end{figure}

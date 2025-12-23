@@ -696,3 +696,128 @@ At the end of each substantive answer, include a short meta-calibration block wi
 ### 170. [2025-12-23 15:57] Google Scholar URL
 **User Prompt:**
 > https://scholar.google.com/citations?user=agBdssgAAAAJ&hl=en
+
+### 171. [2025-12-23 16:12] Latent Plot Subset Identity Analysis
+**User Prompt:**
+> continue iterating through the following, first by reorganizing the TODOs slightly such that no items are lost or transformed from their verbatim content, timestamps are applied at the item level, everything is organized by logical sections, we adhere to the P1 P2 P3 etc organization structure other than subsectioning, this reorganization reflects an eye towards completing the poster and report within the next 4 hours.
+>
+> [Detailed Goal-level assessment: G1 FAIL (latent plots use df_pred-wide masks, not eval subset), G2 PARTIAL (price structure improved but coverage not first-class), G3 PARTIAL (failure-mode diagnostics added but not in latent space)]
+>
+> [Core reason Goal 1 fails: latent plotting constructs own subset from df_pred, not df_pred_filtered or eval_pos_idx; Mask debug block references mu_z before computed]
+>
+> [Plot-plan coverage: P0-P9 status table showing missing/partial plots]
+>
+> [Immediate changes needed: single base_eval_mask, plot contract banners, remove duplicate mask blocks]
+>
+> [Design improvements: stop variance-based dim selection, paired value+counts binning]
+
+**Action:**
+- Reorganized TODO.md into 27 subsections (P1.1–P1.27) organized by topic area
+- Added 4-hour deadline header
+- Preserved all verbatim content with item-level timestamps
+- Moved completed items to TODO-COMPLETED.md in CHANGELOG order
+
+### 172. [2025-12-23 16:21] Hard-Stop Defects and Eval-Subset Contract
+**User Prompt:**
+> Add the following items, and then you will not need to reference this conversation again.
+>
+> 1. Close the previously identified hard-stop defects (D, E, F)
+>    1.1 Global filter call correctness (F): Apply global price filter only to eval subset, assert input length equals eval subset length
+>    1.2 PIT/coverage control-flow (D): Move all PIT/coverage to single unconditional post-filter block, no PIT/coverage inside optional plot branches
+>    1.3 QQ / helper redefinition runtime defects (E): Remove second definition of digitize_safe, fix normal_ppf elementwise, add smoke test
+>
+> 2. Enforce "eval-subset only" dataflow: Construct df_eval = df_pred[base_eval_mask].copy() exactly once; all derived arrays must be eval-length; plotting functions accept df_eval plus eval-length arrays
+>
+> 3. Row-level audit artifact: Create eval_audit_df with boolean columns (has_z, has_price, passes_global_filter, has_bldg, in_plot_price, in_plot_class, drop_reason); save alongside plots; plot banner reads from eval_audit_df
+>
+> Calibration: Persona: Senior applied ML systems engineer. 70% ZPD (contract + mask unification), 20% stretch (single-pass eval dataflow), 10% aspirational (row-level audit artifact).
+> Suggestion: When writing TODOs, add one "invariant" line per critical section, then add the single assertion that enforces it.
+
+**Action:**
+- Added P1.3a–P1.3e subsections for hard-stop defects D/E/F, eval-subset-only dataflow contract, and row-level audit artifact
+- Included **Invariant** lines per critical section with enforcement assertions
+
+### 173. [2025-12-23 16:21] GUIDELINES Reflection
+**User Prompt:**
+> do our GUIDELINES reflect concerns of this conversation and prioritized such within the broader GUIDELINES appropriately?
+
+**Action:**
+- Added Section 1.5 (Evaluation Discipline) to GUIDELINES.md under P1 - Critical
+- Subsections: 1.5.1 Eval-Subset-Only Dataflow, 1.5.2 Mask Discipline, 1.5.3 Plot Contract Requirements, 1.5.4 Row-Level Audit Artifact
+
+### 174. [2025-12-23 16:22] META Guidelines from Conversation
+**User Prompt:**
+> not just regarding those but also regarding META I've provided within this conversation
+
+**Action:**
+- Added META guidelines to Section 6.1: "Invariant-First Pattern" and "Mask Declaration Before Plotting"
+
+### 175. [2025-12-23 16:23] Cleanup and Commit
+**User Prompt:**
+> if TODO prev is completely covered delete, do one last check before doing so
+> [followed by:] What about the takeaways from this entire conversation itself?
+
+**Action:**
+- Verified TODO_prev.txt content is fully covered by new TODO.md (91 unchecked items vs original 73, all original items preserved plus new analysis items)
+- Logged this conversation's takeaways to PROMPTS-LOG.md
+- Deleted TODO_prev.txt (temporary file from git comparison)
+- Committed all changes
+
+### 176. [2025-12-23 16:26] Compile Report and Poster
+**User Prompt:**
+> compile report.tex so i can begin reviewing it
+> [followed by:] is poster.pdf the latest poster.tex? compile to be sure
+
+**Action:**
+- Compiled report.tex and poster.tex in final_project/
+- Fixed hyperref option clash in poster
+
+### 177. [2025-12-23 16:27] Move to Final Project
+**User Prompt:**
+> most both poster and report to final project make a copy of the images there too
+> [followed by:] and images not appearing in the submiited hw3 can be completely moved to the final project. any missing images referred to in hw3 should be resurfaced from a relevant prev commit
+
+**Action:**
+- Copied poster.tex and report.tex to final_project/
+- Recovered miwae_residuals_qq.png and miwae_latents_by_building_class.png from git commit 638102e0
+- Copied all images to final_project/images/
+
+### 178. [2025-12-23 16:30] Reference Research and Image Updates
+**User Prompt:**
+> any recommendations or references for content, length, number of references for each section? those should be downloaded to an appropriate references folder and properly organized and annotated and notetaked. select similar papers and posters where this would realistically be submitted. update the images references in the report to reflect the new variants names
+
+**Action:**
+- Added P2.2 TODO for reference research and ICML formatting
+- Updated report image references: miwae_loss_elbo → convergence_loss, miwae_residuals_histogram → residuals_hist_references, miwae_latents_by_sale_price → latent_space_price, miwae_latents_by_building_class → latent_space_bldg
+
+### 179. [2025-12-23 16:31] Report Header Updates
+**User Prompt:**
+> the report should be entitled Final Project rather than Homework 3 up top. ensure Prof. David Blei is written there. the Due date for this is Dec 24 1pm ET
+> [followed by:] for should be on the same line as NYC Property Valuation in the title
+> [followed by:] references should not run over the page
+
+**Action:**
+- Updated header: "Homework 3" → "Final Project", added Prof. David Blei
+- Fixed title line break ("for NYC Property Valuation" on same line)
+- Added url package with sloppy line breaking for references
+
+### 180. [2025-12-23 16:33] HW3 Folder Cleanup
+**User Prompt:**
+> we no longer need the report or poster in the hw 3 folder. ensure the hw3 submission pdf is copied back from final project to the hw 3 folder and renamed to avoid .tex file compiling over it incidentally
+
+**Action:**
+- Removed report.tex and poster.tex from hws/hw3.d
+- Copied hw3-dl3645-SUBMITTED.pdf as hw3-dl3645-SUBMITTED-LOCKED.pdf
+
+### 181. [2025-12-23 16:35] Final Report Refinements
+**User Prompt:**
+> my name and email should appear up top report email should also be in mono font and linked
+> [followed by:] Daniel Hardesty Lewis always reflect and have you done your hygeine (TODO PROMPTS LOGS GUIDELINES reflections?)
+> [followed by:] Dec 24 2025
+
+**Action:**
+- Added author "Daniel Hardesty Lewis" with linked email in mono font
+- Updated due date to "Dec 24, 2025 at 1:00 pm ET"
+- Logged all prompts to PROMPTS-LOG.md
+- Committed all changes
+

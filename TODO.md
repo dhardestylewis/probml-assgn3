@@ -12,6 +12,9 @@
 - [ ] `mask_has_bldg`: building class `notna` if needed [Added: 2025-12-23 16:12]
 - [ ] `mask_plot_price = base_eval_mask & mask_has_price & mask_has_bldg` (or drop `mask_has_bldg` if price plots do not require it, but then document it) [Added: 2025-12-23 16:12]
 - [ ] `mask_plot_class = base_eval_mask & mask_has_bldg` (price not required unless you want identical points) [Added: 2025-12-23 16:12]
+- [ ] Define `mask_has_price_eval` and `mask_has_bldg_eval` on `df_eval`, not `df_pred`, and define `mask_plot_price_eval` and `mask_plot_class_eval` in eval-index space only [Added: 2025-12-23 16:44]
+- **Invariant**: No plot receives a `df_pred`-space mask.
+- **Assertion location**: All `plot_*` functions; **Failure message**: `"Plot mask length {len(mask)} != df_eval length {len(df_eval)}; received df_pred-space mask"`
 
 ### P1.2 - Remove Duplicate Mask Blocks / Hidden-State Dependencies [Added: 2025-12-23 16:12]
 - [ ] Compute `mu_z` first [Added: 2025-12-23 16:12]
@@ -22,6 +25,40 @@
 ### P1.3 - Plot Contract Banner Function [Added: 2025-12-23 16:12]
 - [ ] Add a plot contract banner function and call it on every figure [Added: 2025-12-23 16:12]
 - [ ] Every figure must self-report: mask name, `n_total_eval`, `n_used`, and the main drop reasons (missing z, missing price, failed global price filter, missing building class if required) [Added: 2025-12-23 16:12]
+- [ ] The plot banner should read counts from `eval_audit_df`, not recompute them ad hoc [Added: 2025-12-23 16:21]
+
+### P1.3a - Hard-Stop Defect F: Global Filter Call Correctness [Added: 2025-12-23 16:21]
+- [ ] Apply global price filter only to the eval subset (`df_eval`), never to `df_pred` [Added: 2025-12-23 16:21]
+- [ ] `apply_global_price_filter` asserts input length equals eval subset length; call sites must pass `df_eval` and eval-length arrays only [Added: 2025-12-23 16:21]
+- **Invariant**: After `df_eval` construction, no function receives `df_pred`-length arrays.
+
+### P1.3b - Hard-Stop Defect D: PIT/Coverage Control-Flow [Added: 2025-12-23 16:21]
+- [ ] Move all PIT/coverage computations into a single unconditional post-filter block that always executes once eval data are constructed [Added: 2025-12-23 16:21]
+- [ ] No PIT/coverage logic inside residual plot blocks or any optional plot branch [Added: 2025-12-23 16:21]
+- **Invariant**: PIT/coverage runs exactly once, unconditionally, after eval subset is finalized.
+
+### P1.3c - Hard-Stop Defect E: QQ/Helper Redefinition Runtime Defects [Added: 2025-12-23 16:21]
+- [ ] Remove the second definition of `digitize_safe`; define once [Added: 2025-12-23 16:21]
+- [ ] Fix `normal_ppf` usage so it is applied elementwise (or replace with a vector-safe implementation) [Added: 2025-12-23 16:21]
+- [ ] Add a smoke test that QQ plot code runs end-to-end [Added: 2025-12-23 16:21]
+- [ ] Add `eval_smoke_test()`: constructs `df_eval`, builds `eval_audit_df`, runs PIT/coverage block, generates at least one latent plot and one residual plot, and asserts: [Added: 2025-12-23 16:44]
+  - `len(df_eval) == sum(base_eval_mask)`
+  - All derived arrays have length `len(df_eval)`
+  - All plot masks have length `len(df_eval)`
+  - Plot banner counts match `eval_audit_df` counts
+- **Invariant**: No helper function is defined more than once; all helpers are vector-safe.
+
+### P1.3d - Eval-Subset-Only Dataflow Contract [Added: 2025-12-23 16:21]
+- [ ] Construct `df_eval = df_pred[base_eval_mask].copy()` exactly once [Added: 2025-12-23 16:21]
+- [ ] From that point onward, every derived array must be eval-length (`z`, `mu_log_eval`, `y_log_eval`, `residuals`, etc.) [Added: 2025-12-23 16:21]
+- [ ] Every plotting function accepts `df_eval` plus eval-length arrays, and optional plot masks are defined in eval-index space (length `len(df_eval)`), not `df_pred` space [Added: 2025-12-23 16:21]
+- [ ] Add assertion: `assert len(array) == len(df_eval)` for all derived arrays after `df_eval` construction [Added: 2025-12-23 16:21]
+- **Invariant**: All arrays after `df_eval` construction have length `len(df_eval)`.
+
+### P1.3e - Row-Level Audit Artifact [Added: 2025-12-23 16:21]
+- [ ] Create `eval_audit_df` with one row per `df_eval` row and boolean columns: `has_z`, `has_price`, `passes_global_filter`, `has_bldg`, `in_plot_price`, `in_plot_class`, plus a categorical `drop_reason` (first-failure or multi-label) [Added: 2025-12-23 16:21]
+- [ ] Save `eval_audit_df` (CSV or Parquet) alongside plots [Added: 2025-12-23 16:21]
+- **Invariant**: `eval_audit_df` is the single source of truth for all plot contract banners.
 
 ---
 
@@ -209,7 +246,39 @@
 ---
 
 ## P2 - Important Refinements
-*(No active tasks)*
+
+### P2.1 - Meta-Process Review [Added: 2025-12-23 16:25]
+- [ ] Review GUIDELINES PD.6 (Conversation Improvement Meta-Reflection) and mark as (REVIEWED) [Added: 2025-12-23 16:25]
+
+### P2.2 - Reference Research and ICML Formatting [Added: 2025-12-23 16:30]
+- [ ] Download similar MIWAE/VAE for real estate papers to `final_project/references/` [Added: 2025-12-23 16:30]
+- [ ] Convert report to ICML 2025 style (icml2025.sty, two-column, 10pt Times, APA references) [Added: 2025-12-23 16:30]
+- [ ] Add Impact Statement section (required for ICML) [Added: 2025-12-23 16:30]
+- [ ] Ensure references are complete with page numbers [Added: 2025-12-23 16:30]
+- [ ] Create `final_project/references/notes.md` with section-by-section recommendations for content, length, references [Added: 2025-12-23 16:30]
+- [ ] Identify appropriate venues: ICML, NeurIPS, AISTATS, UAI workshops [Added: 2025-12-23 16:30]
+
+### P2.3 - Report Text Revisions (from critiques.md) [Added: 2025-12-23 16:41]
+> See `final_project/critiques.md` for detailed item-level tracking.
+
+**Summary of outstanding items (~65 total):**
+- **Abstract (P2)**: Clarify panel size, noise assumptions, MIWAE terminology, discriminative baseline, citation specifics
+- **Intro (P2)**: Blei vocabulary consistency, evidence for skewness claims
+- **Model (P2)**: Contextualize Cholesky/logits, explain $K=3$ choice
+- **Inference (P3)**: Define amortized VI, importance samples, notation consistency
+- **Data/Setup (P3)**: Justify 80/20 split, add hyperparams (batch size, lr, seed)
+- **Results (P3)**: Exact values vs approx, paragraph unity, claim quantification
+- **Plans (P3)**: Remove meta-commentary, specify architectures, rename sections
+
+### P2.4 - Image Review and Recompilation [Added: 2025-12-23 16:47]
+> See `references/IMAGE_DESCRIPTIONS.md` for detailed visual inspection analysis.
+
+- [ ] Review all 28 images against IMAGE_DESCRIPTIONS.md recommendations [Added: 2025-12-23 16:47]
+- [ ] Implement critical improvements identified (add sample sizes, error bars, statistical tests) [Added: 2025-12-23 16:47]
+- [ ] Regenerate plots from `code/post_training_eval.py` with improvements [Added: 2025-12-23 16:47]
+- [ ] Update `final_project/images/` with improved versions [Added: 2025-12-23 16:47]
+- [ ] Recompile `STCS6701_FinalProject_Report_Lewis.tex` and `STCS6701_FinalProject_Poster_Lewis.tex` [Added: 2025-12-23 16:47]
+- [ ] Verify 15 publication-ready figures, exclude 4 draft figures identified [Added: 2025-12-23 16:47]
 
 ---
 
