@@ -1932,11 +1932,15 @@ if mask_valid_price.sum() > 100:
     def format_price(val):
         price = np.exp(val)
         if price >= 1_000_000_000:
-            return f"${price/1_000_000_000:.1f}B"
+            v = price / 1_000_000_000
+            fmt = ".0f" if v.is_integer() else ".1f"
+            return f"${v:{fmt}}B"
         elif price >= 1_000_000:
-            return f"${price/1_000_000:.1f}M"
+            v = price / 1_000_000
+            fmt = ".0f" if v.is_integer() else ".1f" # e.g. 250.0 -> 250M, 2.5 -> 2.5M
+            return f"${v:{fmt}}M"
         else:
-            return f"${price/1_000:.0f}K"
+            return f"${price/1000:.0f}K"
     
     # Strategy: Start with vmin, add intermediate standard ticks that aren't too close, end with vmax
     final_ticks = [vmin]
@@ -1960,6 +1964,8 @@ if mask_valid_price.sum() > 100:
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
+    ax.set_xticks([])
+    ax.set_yticks([])
     
     # Apply fixed axis limits
     ax.set_xlim(x_lim_fixed)
@@ -2005,12 +2011,14 @@ if mask_valid_price.sum() > 100:
         min_c, max_c = bin_counts.min(), bin_counts.max()
         
         if max_c > min_c:
-            # Scale 0.1 to 1.0
-            alpha_vals = 0.1 + 0.9 * (bin_counts - min_c) / (max_c - min_c)
+            # Scale 0.1 to 1.0 using SQUARED mapping to emphasize high density
+            # This makes low/medium density transparency much more visible
+            norm_c = (bin_counts - min_c) / (max_c - min_c)
+            alpha_vals = 0.05 + 0.95 * (norm_c ** 2)
         else:
             alpha_vals = np.ones_like(bin_counts)
         
-        print(f"[Eval] Hexbin Transparency: Linear Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
+        print(f"[Eval] Hexbin Transparency: Squared Alpha Range [{alpha_vals.min():.3f} - {alpha_vals.max():.3f}]")
 
         # Robust way: Re-map colors manually
         # Use the norm from the hexbin itself to ensure consistency
@@ -2048,6 +2056,8 @@ if mask_valid_price.sum() > 100:
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
+    ax.set_xticks([])
+    ax.set_yticks([])
     
     # Apply fixed axis limits
     ax.set_xlim(x_lim_fixed)
@@ -2083,15 +2093,24 @@ if mask_valid_price.sum() > 100:
         
     cbar.set_label("Count", fontsize=10)
     
-    # Create simple integer ticks: 0, 25%, 50%, 75%, Max (rounded)
-    # Human readable with commas
-    tick_vals = np.linspace(0, max_c, 5)
+    # Create clean integer ticks using MaxNLocator
+    import matplotlib.ticker as ticker
+    locator = ticker.MaxNLocator(nbins=5, integer=True, steps=[1, 2, 5, 10])
+    tick_vals = locator.tick_values(0, max_c)
+    # Filter to range
+    tick_vals = [t for t in tick_vals if 0 <= t <= max_c]
     tick_labels = [f"{int(t):,}" for t in tick_vals]
     cbar.set_ticks(tick_vals)
     cbar.set_ticklabels(tick_labels)
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Remove latent ticks
+    ax.set_xticks([])
+    ax.set_yticks([])
     
     # Apply fixed axis limits
     ax.set_xlim(x_lim_fixed)
@@ -2219,6 +2238,10 @@ if bldg_class_col:
         ax.scatter(bldg_z[mask, plot_dim1], bldg_z[mask, plot_dim2], s=5, alpha=0.5, label=label)
     ax.set_xlabel(label_x)
     ax.set_ylabel(label_y)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.set_title(f"Latent space (z{plot_dim1+1} vs z{plot_dim2+1}) colored by building class\n(Original Simple Version)",
                     fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
@@ -2300,6 +2323,8 @@ if bldg_class_col:
     
     ax.set_xlabel(label_x, fontsize=11)
     ax.set_ylabel(label_y, fontsize=11)
+    ax.set_xticks([])
+    ax.set_yticks([])
     
     # Apply fixed axis limits
     ax.set_xlim(x_lim_fixed)
