@@ -886,3 +886,39 @@ At the end of each substantive answer, include a short meta-calibration block wi
 - Confirmed reference publications NOT yet downloaded (P2.2 TODO, proxy blocked in other session)
 - Added prompts 182-188 to PROMPTS-LOG.md to capture all session concerns
 
+### 189. [2025-12-23 17:10] Precision Guidelines
+**User Prompt:**
+> never use this symbol ≈ anywhere throughout. if we make claims they should be exact
+> [followed by:] not roughly approximately etc. any such rounding should be reflected in the number itself
+
+**Action:**
+- Searched project for ≈ symbol - found in docs/code but NOT in main report/poster
+- Added precision guideline to GUIDELINES.md
+- Fixed kurtosis "≈ 9.27" → "= 9.27" in report
+
+### 190. [2025-12-23 17:12] Abstract Consolidation
+**User Prompt:**
+> if they are clean they are not yet compiled
+> [followed by:] make this a single paragraph [abstract text provided]
+> [followed by:] has everything we discussed reflected in TODO LOGS and where appropriate GUIDELINES
+
+**Action:**
+- Compiled report and poster PDFs
+- Condensed abstract from 3 paragraphs to 1 paragraph
+- Updated PROMPTS-LOG.md with prompts 189-190
+- Added precision guideline to GUIDELINES.md
+
+### 191. [2025-12-23 17:15] Center Table
+**User Prompt:**
+> center this Table 1: Predictive
+
+**Action:**
+- Added `\centering` to Table 1 in report
+- Recompiled PDF
+
+### 192. [2025-12-23 17:16] Hygiene Check
+**User Prompt:**
+> have you been hygeine
+
+**Action:**
+- Logged prompts 191-192 to PROMPTS-LOG.md

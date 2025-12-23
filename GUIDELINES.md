@@ -10,6 +10,8 @@
 > **META**: All new guidelines must include insertion timestamp `[Added: YYYY-MM-DD HH:MM]`.
 > **META**: When syncing external guidelines, MERGE with existing project-specific content—do not overwrite. Review previous commit if needed. (UNREVIEWED) [Added: 2025-12-12 00:06]
 
+> **CRITICAL**: Never use approximate symbols (≈) or hedging language (approximately, roughly, about) in claims. All rounding should be reflected in the number itself (e.g., "9.27" not "≈9.27"). [Added: 2025-12-23 17:10]
+
 ---
 
 ## Prime Directive for AI Responses (UNREVIEWED) [Added: 2025-12-11 23:48] [Last Updated: 2025-12-08]

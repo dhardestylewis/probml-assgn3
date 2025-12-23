@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 17:10
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.10.16)  23 DEC 2025 17:21
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -433,13 +433,13 @@ Package hyperref Info: Link coloring ON on input line 25.
 \@outlinefile=\write3
 \openout3 = `STCS6701_FinalProject_Report_Lewis.out'.
 
-LaTeX Font Info:    Trying to load font information for U+msa on input line 41.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 39.
 
 
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 41.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 39.
 
 
 (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
@@ -449,11 +449,11 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 [1{C:/Users/dhl/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}
 
 ]
-<images/miwae_graphical_model.png, id=19, 644.4075pt x 409.53pt>
+<images/miwae_graphical_model.png, id=20, 644.4075pt x 409.53pt>
 File: images/miwae_graphical_model.png Graphic file (type png)
 <use images/miwae_graphical_model.png>
 Package pdftex.def Info: images/miwae_graphical_model.png  used on input line 9
-4.
+0.
 (pdftex.def)             Requested size: 375.80544pt x 238.83983pt.
 
 
@@ -461,7 +461,7 @@ Package pdftex.def Info: images/miwae_graphical_model.png  used on input line 9
 <images/convergence_loss.png, id=38, 503.481pt x 347.8596pt>
 File: images/convergence_loss.png Graphic file (type png)
 <use images/convergence_loss.png>
-Package pdftex.def Info: images/convergence_loss.png  used on input line 129.
+Package pdftex.def Info: images/convergence_loss.png  used on input line 125.
 (pdftex.def)             Requested size: 375.80544pt x 259.65201pt.
 
 
@@ -472,12 +472,12 @@ Package pdftex.def Info: images/convergence_loss.png  used on input line 129.
 File: images/residuals_hist_references.png Graphic file (type png)
 <use images/residuals_hist_references.png>
 Package pdftex.def Info: images/residuals_hist_references.png  used on input li
-ne 194.
+ne 191.
 (pdftex.def)             Requested size: 230.18253pt x 140.5715pt.
 <images/miwae_residuals_qq.png, id=62, 335.3328pt x 340.3917pt>
 File: images/miwae_residuals_qq.png Graphic file (type png)
 <use images/miwae_residuals_qq.png>
-Package pdftex.def Info: images/miwae_residuals_qq.png  used on input line 195.
+Package pdftex.def Info: images/miwae_residuals_qq.png  used on input line 192.
 
 (pdftex.def)             Requested size: 230.18253pt x 233.65512pt.
 
@@ -487,27 +487,32 @@ Package pdftex.def Info: images/miwae_residuals_qq.png  used on input line 195.
 File: images/residuals_spatial_map.png Graphic file (type png)
 <use images/residuals_spatial_map.png>
 Package pdftex.def Info: images/residuals_spatial_map.png  used on input line 2
-12.
+09.
 (pdftex.def)             Requested size: 234.8775pt x 378.65236pt.
 <images/coverage_by_sale_year.png, id=75, 713.064pt x 352.6776pt>
 File: images/coverage_by_sale_year.png Graphic file (type png)
 <use images/coverage_by_sale_year.png>
 Package pdftex.def Info: images/coverage_by_sale_year.png  used on input line 2
-23.
+20.
 (pdftex.def)             Requested size: 375.80544pt x 185.87424pt.
 
 
+LaTeX Warning: Reference `fig:latent-price' on page 6 undefined on input line 2
+27.
+
+
+
 [6 <./images/residuals_hist_references.png> <./images/miwae_residuals_qq.png>]
-<images/latent_space_price.png, id=88, 487.0998pt x 412.4208pt>
+<images/latent_space_price.png, id=87, 487.0998pt x 412.4208pt>
 File: images/latent_space_price.png Graphic file (type png)
 <use images/latent_space_price.png>
-Package pdftex.def Info: images/latent_space_price.png  used on input line 234.
+Package pdftex.def Info: images/latent_space_price.png  used on input line 231.
 
 (pdftex.def)             Requested size: 225.4804pt x 190.91154pt.
-<images/latent_space_bldg.png, id=89, 478.9092pt x 402.7848pt>
+<images/latent_space_bldg.png, id=88, 478.9092pt x 402.7848pt>
 File: images/latent_space_bldg.png Graphic file (type png)
 <use images/latent_space_bldg.png>
-Package pdftex.def Info: images/latent_space_bldg.png  used on input line 236.
+Package pdftex.def Info: images/latent_space_bldg.png  used on input line 233.
 (pdftex.def)             Requested size: 225.4804pt x 189.63461pt.
 
 
@@ -529,20 +534,20 @@ L3 programming layer <2025-09-02>
  ***********
 
 
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `STCS6701_FinalProject_Report_Lewis.out' has 
 not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 11156 strings out of 468081
- 173996 string characters out of 5426756
- 593863 words of memory out of 5000000
- 39635 multiletter control sequences out of 15000+600000
+ 11155 strings out of 468081
+ 173969 string characters out of 5426756
+ 594648 words of memory out of 5000000
+ 39634 multiletter control sequences out of 15000+600000
  635684 words of font info for 70 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,12n,79p,737b,608s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,13n,79p,1533b,608s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\dhl\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm10
 95.pk><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/c
 m/cmbx10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
@@ -560,10 +565,10 @@ Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.p
 fb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
 mtt10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfon
 ts/symbols/msbm10.pfb>
-Output written on STCS6701_FinalProject_Report_Lewis.pdf (10 pages, 1768336 byt
+Output written on STCS6701_FinalProject_Report_Lewis.pdf (10 pages, 1768277 byt
 es).
 PDF statistics:
- 214 PDF objects out of 1000 (max. 8388607)
+ 213 PDF objects out of 1000 (max. 8388607)
  60 named destinations out of 1000 (max. 500000)
  41 words of extra memory for PDF output out of 10000 (max. 10000000)
 
