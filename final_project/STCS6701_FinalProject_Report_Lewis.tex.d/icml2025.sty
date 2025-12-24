@@ -1,0 +1,88 @@
+% ICML 2025 LaTeX Style File (Mock for Course Project)
+% Loosely based on the official ICML style
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{icml2025}[2025/01/01 v1.0 ICML 2025 Style]
+
+% Handle options
+\DeclareOption{accepted}{}
+\ProcessOptions\relax
+
+% Based on article class
+\typeout{ICML 2025 Style loaded}
+
+% Required packages
+\RequirePackage{graphicx}
+\RequirePackage{fancyhdr}
+\RequirePackage{url}
+\RequirePackage{algorithm}
+\RequirePackage{algorithmic}
+\RequirePackage{geometry}
+
+% Page dimensions (Approximate ICML standard)
+\geometry{letterpaper, left=0.75in, right=0.75in, top=1.0in, bottom=1.0in}
+\setlength{\columnsep}{0.25in}
+
+% Typography (Times)
+\renewcommand{\rmdefault}{ptm}
+\renewcommand{\sfdefault}{phv}
+
+% Title Formatting
+% \icmltitle produces the centered title with horizontal bars surrounding it
+\newcommand{\icmltitle}[1]{
+  \centering
+  \vspace*{10pt}
+  \hrule height 1pt
+  \vspace*{2pt}
+  {\Large \textbf{#1}} \\
+  \vspace*{2pt}
+  \hrule height 1pt
+  \vspace*{15pt}
+}
+
+% Author Formatting
+\newcommand{\icmlauthor}[2]{
+  \begin{center}
+    {\bf #1} \\
+    {\small #2}
+  \end{center}
+}
+
+% Affiliation Formatting (Simplified single block)
+\newcommand{\icmlaffiliation}[1]{
+  \begin{center}
+    {\it #1}
+  \end{center}
+}
+
+% Abstract Formatting
+\renewenvironment{abstract}{
+  \centerline{\large \bf Abstract}
+  \vspace{0.2in}
+  \begin{quote}
+  \small
+}{
+  \end{quote}
+  \vspace{0.2in}
+}
+
+
+% Running Heads (Course info instead of "Proceedings of...")
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{STCS 6701: Probabilistic Machine Learning (Final Project)}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.0pt} % ICML usually doesn't have a head rule, but keeping course header clean
+
+% Section Heading Formatting (Bold, Caps)
+\RequirePackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+
+% Caption Formatting
+\RequirePackage[font=small,labelfont=bf]{caption}
+
+% Bibliography styling (standard natbib or similar usually, we assume standard latex bib)
+\bibliographystyle{plain}
+
+\endinput

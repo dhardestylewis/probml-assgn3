@@ -1383,8 +1383,6 @@ if y_true_log_eval is not None and mu_log_eval is not None:
                         save_figure("residuals_by_bldg_class.png")
                         plt.show()
                         
-                             # (Old nested coverage plot removed)
-
                 # --- By Year Built ---
                 year_col = next((c for c in ['year_built', 'yearbuilt', 'year'] if c in meta_subset.columns), None)
                 if year_col:

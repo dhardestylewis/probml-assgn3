@@ -5,6 +5,8 @@
 
 ## P1 - Critical: Latent Plot Subset Identity (Goal 1)
 
+- [ ] **Priority:** Create detailed pipeline diagrams for the model architecture (Future)
+
 ### P1.1 - Base Mask Definition [Added: 2025-12-23 16:12]
 - [ ] Make one authoritative `base_eval_mask` over `df_pred` rows that is the only admissible starting point for evaluation plots [Added: 2025-12-23 16:12]
 - [ ] `base_eval_mask`: boolean length `len(df_pred)`, True exactly at `eval_pos_idx` (CV held-out or fallback hold-out) [Added: 2025-12-23 16:12]
@@ -137,8 +139,8 @@
 ## P1 - Critical: References and Notation
 
 ### P1.12 - Citations Required [Added: 2025-12-21 21:40]
-- [ ] "doesnt this require a reference? the Missing-data Importance-Weighted Autoencoder (MIWAE)" [Added: 2025-12-21 21:40]
-- [ ] "likewise Student-t Mixture" [Added: 2025-12-21 21:40]
+- [x] "doesnt this require a reference? the Missing-data Importance-Weighted Autoencoder (MIWAE)" [Completed: 2025-12-23 21:15]
+- [x] "likewise Student-t Mixture" [Completed: 2025-12-23 21:15]
 
 ### P1.13 - Symbol/Notation Verification [Added: 2025-12-21 21:40]
 - [ ] "would the community automatically understand diag? search to be certain" [Added: 2025-12-21 21:40]
@@ -202,12 +204,12 @@
 - [ ] "the equations we have selected to inlcude/exclude relative to the HW" [Added: 2025-12-21 21:40]
 
 ### P1.23 - Text Style Fixes [Added: 2025-12-21 21:40]
-- [ ] "you are still repeating log- everywhere" [Added: 2025-12-21 21:40]
+- [x] "you are still repeating log- everywhere" [Completed: 2025-12-23 21:10]
 - [ ] "be confident about either titling the axis generally \"total loss\" or specifically-ELBO but not both... make reasoning to decide which" - in the TODOs [Added: 2025-12-21 21:40]
-- [ ] "never use word approximately, deliberately confidently abbreviate the number instead 'approximately 122,000 NYC'" [Added: 2025-12-21 21:40]
+- [x] "never use word approximately, deliberately confidently abbreviate the number instead 'approximately 122,000 NYC'" [Completed: 2025-12-23 20:45]
 - [ ] "'Loss stabilizes around 50 epochs' - isnt this for the caption? its stable throughout, more like plateaus" [Added: 2025-12-21 21:40]
-- [ ] "Predicts log-transformed sale prices" [Added: 2025-12-21 21:40]
-- [ ] "you can just say predicts sale prices and mention somewhere where directly required for interpretation that everything is log-transformed" [Added: 2025-12-21 21:40]
+- [x] "Predicts log-transformed sale prices" [Completed: 2025-12-23 21:10]
+- [x] "you can just say predicts sale prices and mention somewhere where directly required for interpretation that everything is log-transformed" [Completed: 2025-12-23 21:10]
 
 ---
 
@@ -252,10 +254,10 @@
 
 ### P2.2 - Reference Research and ICML Formatting [Added: 2025-12-23 16:30]
 - [ ] Download similar MIWAE/VAE for real estate papers to `final_project/references/` [Added: 2025-12-23 16:30]
-- [ ] Convert report to ICML 2025 style (icml2025.sty, two-column, 10pt Times, APA references) [Added: 2025-12-23 16:30]
-- [ ] Add Impact Statement section (required for ICML) [Added: 2025-12-23 16:30]
-- [ ] Ensure references are complete with page numbers [Added: 2025-12-23 16:30]
-- [ ] Create `final_project/references/notes.md` with section-by-section recommendations for content, length, references [Added: 2025-12-23 16:30]
+- [x] Convert report to ICML 2025 style (icml2025.sty, two-column, 10pt Times, APA references) [Completed: 2025-12-23 21:00]
+- [x] Add Impact Statement section (required for ICML) [Completed: 2025-12-23 21:00]
+- [x] Ensure references are complete with page numbers [Completed: 2025-12-23 21:15]
+- [x] Create `final_project/references/notes.md` with section-by-section recommendations for content, length, references [Completed: 2025-12-23 20:30]
 - [ ] Identify appropriate venues: ICML, NeurIPS, AISTATS, UAI workshops [Added: 2025-12-23 16:30]
 
 ### P2.3 - Report Text Revisions (from critiques.md) [Added: 2025-12-23 16:41]
@@ -282,11 +284,48 @@
 
 ---
 
-## P3 - Polish & Cleanup
-*(No active tasks)*
+## P3 - Plans for Final Weeks (Roadmap to Implementation) [Added: 2025-12-23 17:33]
+
+### P3.1 - Student-t Likelihood Implementation (Robustness)
+- [ ] **Define Student-t Head**:
+    - [ ] In `SemiSupMIWAE` (line ~4902), modify `__init__` to accept `likelihood_type="student_t"` and `df=4.0` (or learnable `df`).
+    - [ ] Add `self.log_df = nn.Parameter(...)` if learnable degrees of freedom are desired (optional).
+- [ ] **Implement Log-Likelihood Logic**:
+    - [ ] In `VAETrainer._calculate_y_loss` (line ~5090), add `if self.price_loss_type_y == "student_t_nll":`.
+    - [ ] Implement robust NLL: `log_gamma(...) - log_gamma(...) - 0.5*log(pi*nu*sigma^2) - (nu+1)/2 * log(1 + (resid^2)/(nu*sigma^2))`.
+- [ ] **Update Configuration**:
+    - [ ] Add `price_loss_type` argument to `SemiSupMIWAE` and `VAETrainer` calls in the pipeline script (`retabularautovae_probml.py`).
+
+### P3.2 - Richer Price Head Architecture (Expressivity)
+- [ ] **Expand `price_mean_head`**:
+    - [ ] Currently `nn.Linear(latent_dim, y_dim)`.
+    - [ ] Replace with `MLP(in=latent, hidden=[64, 64], out=y_dim, act=LeakyReLU)` in `SemiSupMIWAE.__init__`.
+    - [ ] Add residual connections or BatchNorm if training instability occurs.
+- [ ] **Enrich `price_var_head`**:
+    - [ ] Currently `nn.Linear(latent_dim, y_dim)`.
+    - [ ] Similar upgrade to MLP to allow uncertainty `sigma(z)` to depend non-linearly on latent structure.
+
+### P3.3 - Rigorous Uncertainty Calibration
+- [ ] **Metric Expansion**:
+    - [ ] Compute "Expected Calibration Error" (ECE) for regression in `post_training_eval.py`.
+    - [ ] Add `std_calibration_plot(y_true, y_mean, y_std)`: Bin by predicted uncertainty, compare RMS error vs Mean Predicted Uncertainty.
+- [ ] **Validation**:
+    - [ ] Compare `Gaussian` vs `Student-t` calibration curves.
+    - [ ] Verify if "Heavier Tails" (P3.1) actually improve empirical coverage (Figure 5).
+
+### P3.4 - Robust Metrics Computation
+- [ ] **Implement Median Absolute Error (MedAE)**:
+    - [ ] Already in `_report_metrics`; ensure it is logged to central CSV tracker.
+- [ ] **Implement Tail Quantile Loss**:
+    - [ ] Compute `QuantileLoss(q=0.95)` and `QuantileLoss(q=0.99)` to quantify worst-case performance.
+    - [ ] Add to `eval_utils_snippet.py` or `post_training_eval.py` report block.
 
 ---
 
 ## Completed Tasks
 *(See TODO-COMPLETED.md for full history in CHANGELOG order)*
 
+
+- [x] Verify `HistGradientBoostingRegressor` implementation in code (Prompt 205) [Completed: 2025-12-23 20:20]
+- [x] Verify Uncertainty Calibration implementation in code (Prompt 205) [Completed: 2025-12-23 20:20]
+- [x] Audit PROMPTS-LOG.md for missing specific recent prompts (Prompt 206) [Completed: 2025-12-23 20:22]

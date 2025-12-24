@@ -1,0 +1,333 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex.fmt)
+ restricted \write18 enabled.
+entering extended mode
+(STCS6701_FinalProject_Poster_Lewis.tex
+LaTeX2e <2025-06-01> patch level 1
+L3 programming layer <2025-09-02>
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamer.cls
+Document Class: beamer 2025/08/13 v3.76 A class for typesetting presentations
+
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasemodes.st
+y (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/etoolbox\etoolbox.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasedecode.s
+ty)) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/iftex\iftex.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseoptions.
+sty (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\keyval.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifvtex.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.cfg))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/math\pgfmath.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/utilities\pgfrcs.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/utilities\pgfutil-c
+ommon.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/utilities\pgfutil-l
+atex.def)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/utilities\pgfrcs.co
+de.tex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf\pgf.revision.tex)))
+
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/utilities\pgfkeys.sty
+
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/utilities\pgfkeys.c
+ode.tex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/utilities\pgfkeysli
+braryfiltered.code.tex)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmath.code.t
+ex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathutil.co
+de.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathparser.
+code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.basic.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.trigonometric.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.random.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.comparison.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.base.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.round.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.misc.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfunctio
+ns.integerarithmetics.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathcalc.co
+de.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfmathfloat.c
+ode.tex)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/base\size11.clo)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/basiclayer\pgfcore.st
+y (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphics.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\trig.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\graphics.cfg
+) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-def\pdftex.def
+)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/systemlayer\pgfsys.st
+y
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgfsys.
+code.tex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgf.cfg
+)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgfsys-
+pdftex.def
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgfsys-
+common-pdf.def)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgfsyss
+oftpath.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/systemlayer\pgfsysp
+rotocol.code.tex))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/xcolor\xcolor.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\color.cfg)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcore.
+code.tex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/math\pgfint.code.te
+x)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorep
+oints.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorep
+athconstruct.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorep
+athusage.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcores
+copes.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoreg
+raphicstate.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoret
+ransformations.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoreq
+uick.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoreo
+bjects.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorep
+athprocessing.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorea
+rrows.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcores
+hade.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorei
+mage.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoree
+xternal.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorel
+ayers.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcoret
+ransparency.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorep
+atterns.code.tex)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pgf/basiclayer\pgfcorer
+df.code.tex)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/pgf/utilities\xxcolor.sty
+) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/base\atbegshi-ltx.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hyperref.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/kvsetkeys\kvsetkeys.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/kvdefinekeys\kvdefineke
+ys.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pdfescape\pdfescape.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/ltxcmds\ltxcmds.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/pdftexcmds\pdftexcmds.s
+ty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/infwarerr\infwarerr.sty
+))) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hycolor\hycolor.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\nameref.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/refcount\refcount.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/gettitlestring\gettitle
+string.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/kvoptions\kvoptions.sty))
+)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\stringenc.sty
+) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\pd1enc.def)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/intcalc\intcalc.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\puenc.def)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/url\url.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/bitset\bitset.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/bigintcalc\bigintcalc.s
+ty))
+
+Package hyperref Message: Stopped early.
+
+) (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hpdftex.def
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/rerunfilecheck\rerunfilec
+heck.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/uniquecounter\uniquecou
+nter.sty)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaserequires
+.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasecompatib
+ility.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasefont.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\amssymb.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\amsfonts.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/sansmathaccent\sansmathac
+cent.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlfile.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlfile-hook
+.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlogo.sty))
+)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetranslat
+or.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator.sty
+))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasemisc.sty
+)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetwoscree
+ns.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseoverlay.
+sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetitle.st
+y)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasesection.
+sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseframe.st
+y)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseverbatim
+.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseframesiz
+e.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseframecom
+ponents.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasecolor.st
+y)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasenotes.st
+y)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetoc.sty)
+
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetemplate
+s.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseauxtempl
+ates.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaseboxes.st
+y)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbaselocalstr
+ucture.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/tools\enumerate.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasenavigati
+on.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasenavigati
+onsymbols.tex))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasetheorems
+.sty (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsmath.sty
+For additional information on amsmath, use the `?' option.
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amstext.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsgen.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsbsy.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsopn.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/amscls\amsthm.sty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerbasethemes.s
+ty))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerthemedefault
+.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerfontthemedef
+ault.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamercolorthemede
+fault.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerinnerthemede
+fault.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamer\beamerouterthemede
+fault.sty)))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/beamerposter\beamerposter
+.sty (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/xkeyval\xkeyval.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkeyval.tex
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkvutils.tex)))
+ (C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/type1cm\type1cm.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp.sty
+`Fixed Point Package', Version 0.8, April 2, 1995 (C) Michael Mehlich
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\defpattern.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-basic.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-addons.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-snap.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-exp.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-trigo.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-pas.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-random.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-eqn.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-upn.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/fp\fp-eval.sty))
+( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN
+( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL
+) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ) ( FP-UPN ( FP-MUL ) ( FP-ROUND ) ) ( FP-UPN ( FP-MUL )
+( FP-ROUND ) ))
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/booktabs\booktabs.sty)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdfte
+x.def) (STCS6701_FinalProject_Poster_Lewis.aux)
+*geometry* driver: auto-detecting
+*geometry* detected driver: pdftex
+
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-bas
+e.sty
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.cfg
+)) (STCS6701_FinalProject_Poster_Lewis.out)
+(STCS6701_FinalProject_Poster_Lewis.out)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-bas
+ic-dictionary-English.dict)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-bib
+liography-dictionary-English.dict)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-env
+ironment-dictionary-English.dict)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-mon
+ths-dictionary-English.dict)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-num
+bers-dictionary-English.dict)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/translator\translator-the
+orem-dictionary-English.dict) (STCS6701_FinalProject_Poster_Lewis.nav)
+(C:\Users\dhl\AppData\Local\Programs\MiKTeX\tex/latex/sansmathaccent\ot1mathker
+ncmss.fd)
+Overfull \vbox (65.63528pt too high) detected at line 221
+
+LaTeX Font Warning: Font shape `TS1/cmss/m/n' in size <30.85> not available
+(Font)              size <29.86> substituted on input line 221.
+
+
+Overfull \vbox (61.33606pt too high) detected at line 221
+
+Underfull \vbox (badness 10000) detected at line 221
+
+[1{C:/Users/dhl/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map} <../images/co
+lumbia_logo.png> <../images/columbia_engineering_logo.png> <../images/miwae_gra
+phical_model.png> <../images/convergence_loss.png> <../images/residuals_spatial
+_map.png> <../images/miwae_residuals_qq.png> <../images/residuals_hist_referenc
+es.png> <../images/residuals_standardized_vs_pred.png> <../images/residuals_vs_
+pred_bias.png> <../images/latent_space_price.png> <../images/latent_space_bldg.
+png>] (STCS6701_FinalProject_Poster_Lewis.aux)
+
+LaTeX Font Warning: Size substitutions with differences
+(Font)              up to 0.99pt have occurred.
+
+ )
+(see the transcript file for additional information) <C:\Users\dhl\AppData\Loca
+l\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcss2986.pk><C:/Users/dhl/AppData/L
+ocal/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmex10.pfb><C:/Users/dhl/Ap
+pData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi12.pfb><C:/Users
+/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmss12.pfb><C
+:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmss17
+.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm
+/cmssbx10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/public/am
+sfonts/cm/cmssi17.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/type1/p
+ublic/amsfonts/cm/cmsy10.pfb><C:/Users/dhl/AppData/Local/Programs/MiKTeX/fonts/
+type1/public/amsfonts/symbols/msbm10.pfb>
+Output written on STCS6701_FinalProject_Poster_Lewis.pdf (1 page, 1919085 bytes
+).
+Transcript written on STCS6701_FinalProject_Poster_Lewis.log.
